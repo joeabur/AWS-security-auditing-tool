@@ -1,0 +1,383 @@
+{
+  "schema_version": 1,
+  "tool": {
+    "name": "aws-security-auditing-tool",
+    "version": "0.1.0"
+  },
+  "catalog_version": "2026.10.0",
+  "generated_at": "2026-10-16T12:00:00Z",
+  "started_at": "2026-10-16T12:00:00Z",
+  "account_id": "********3333",
+  "regions": [
+    "us-east-1"
+  ],
+  "audit_profile": "example",
+  "controls_evaluated": [
+    "EBS-002",
+    "IAM-001",
+    "IAM-002",
+    "IAM-007",
+    "LOG-011",
+    "LOG-012",
+    "NET-001",
+    "STO-002"
+  ],
+  "summary": {
+    "total_findings": 11,
+    "by_status": {
+      "PASS": 4,
+      "FAIL": 6,
+      "ERROR": 1,
+      "NOT_APPLICABLE": 0,
+      "NOT_ASSESSED": 0
+    },
+    "failed_by_severity": {
+      "critical": 1,
+      "high": 2,
+      "medium": 3,
+      "low": 0,
+      "info": 0
+    },
+    "controls_with_unknown_results": {
+      "LOG-012": 1
+    }
+  },
+  "api_actions": {
+    "config:DescribeConfigurationRecorders": 1,
+    "ec2:DescribeSecurityGroups": 1,
+    "ec2:DescribeVolumes": 1,
+    "guardduty:ListDetectors": 1,
+    "iam:GetAccountPasswordPolicy": 1,
+    "iam:GetAccountSummary": 1,
+    "s3:GetAccountPublicAccessBlock": 1,
+    "s3:GetBucketPublicAccessBlock": 2,
+    "s3:ListAllMyBuckets": 1
+  },
+  "warnings": [
+    "SYNTHETIC EXAMPLE: generated from stubbed API responses for a fictional account; no AWS account was contacted."
+  ],
+  "disclaimer": "Point-in-time, read-only configuration assessment. Controls are inspired by, but are not a certified implementation of, the CIS AWS Foundations Benchmark. PASS means the evidence gathered met the control's criteria, not that the account is secure. ERROR and NOT_ASSESSED mean the result is unknown.",
+  "findings": [
+    {
+      "finding_id": "7745b5276bf141a7",
+      "control_id": "EBS-002",
+      "title": "EBS volumes are encrypted",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "vol-0a1b2c3d4e5f60001",
+      "resource_type": "AWS::EC2::Volume",
+      "severity": "medium",
+      "status": "PASS",
+      "message": "Volume is encrypted.",
+      "evidence": {
+        "Encrypted": true,
+        "state": "in-use",
+        "kms_key_present": false
+      },
+      "sources": [
+        "ec2:DescribeVolumes"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Create an encrypted snapshot copy, restore it to a new encrypted volume and replace the unencrypted volume.",
+      "uncertainty": [
+        "Encrypted=true shows configured encryption only; KMS key policy, grants and key state are not verified."
+      ]
+    },
+    {
+      "finding_id": "8d5cd91b0c5de304",
+      "control_id": "EBS-002",
+      "title": "EBS volumes are encrypted",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "vol-0a1b2c3d4e5f60002",
+      "resource_type": "AWS::EC2::Volume",
+      "severity": "medium",
+      "status": "FAIL",
+      "message": "Volume is not encrypted.",
+      "evidence": {
+        "Encrypted": false,
+        "state": "available",
+        "kms_key_present": false
+      },
+      "sources": [
+        "ec2:DescribeVolumes"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Create an encrypted snapshot copy, restore it to a new encrypted volume and replace the unencrypted volume.",
+      "uncertainty": []
+    },
+    {
+      "finding_id": "60e29aa986851d58",
+      "control_id": "IAM-001",
+      "title": "Root account has MFA enabled",
+      "account_id": "********3333",
+      "region": "global",
+      "resource_id": "arn:aws:iam::********3333:root",
+      "resource_type": "AWS::::Account",
+      "severity": "critical",
+      "status": "FAIL",
+      "message": "Root MFA is not enabled.",
+      "evidence": {
+        "AccountMFAEnabled": 0
+      },
+      "sources": [
+        "iam:GetAccountSummary"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Sign in as root, register a hardware or virtual MFA device under Security credentials, and store recovery material offline. Prefer a hardware or passkey MFA for root.",
+      "uncertainty": []
+    },
+    {
+      "finding_id": "0fc828ef4e43bc60",
+      "control_id": "IAM-002",
+      "title": "Root account has no active access keys",
+      "account_id": "********3333",
+      "region": "global",
+      "resource_id": "arn:aws:iam::********3333:root",
+      "resource_type": "AWS::::Account",
+      "severity": "critical",
+      "status": "PASS",
+      "message": "No root access keys exist.",
+      "evidence": {
+        "AccountAccessKeysPresent": 0
+      },
+      "sources": [
+        "iam:GetAccountSummary"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Sign in as root and delete the root access keys; use IAM roles or IAM Identity Center for programmatic access.",
+      "uncertainty": []
+    },
+    {
+      "finding_id": "7c87da9ba98eb289",
+      "control_id": "IAM-007",
+      "title": "IAM password policy meets the configured baseline",
+      "account_id": "********3333",
+      "region": "global",
+      "resource_id": "account/********3333",
+      "resource_type": "AWS::::Account",
+      "severity": "medium",
+      "status": "FAIL",
+      "message": "Password policy is weaker than baseline: minimum length 8 < 14; reuse prevention 5 < 24",
+      "evidence": {
+        "MinimumPasswordLength": 8,
+        "PasswordReusePrevention": 5,
+        "required_length": 14,
+        "required_reuse_prevention": 24
+      },
+      "sources": [
+        "iam:GetAccountPasswordPolicy"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Set a password policy with the configured minimum length (default 14) and reuse prevention (default 24), or eliminate IAM user passwords via federation.",
+      "uncertainty": [
+        "Only length and reuse prevention are evaluated."
+      ]
+    },
+    {
+      "finding_id": "f38f1415d91cdd9e",
+      "control_id": "LOG-011",
+      "title": "GuardDuty detector is enabled in the region",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "region/us-east-1",
+      "resource_type": "AWS::GuardDuty::Detector",
+      "severity": "medium",
+      "status": "FAIL",
+      "message": "GuardDuty is not enabled in this region.",
+      "evidence": {
+        "detectors": 0,
+        "enabled": 0
+      },
+      "sources": [
+        "guardduty:ListDetectors",
+        "guardduty:GetDetector"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Enable GuardDuty in every in-use region, ideally centrally managed through AWS Organizations.",
+      "uncertainty": [
+        "Delegated-administrator or suppressed findings are not evaluated."
+      ]
+    },
+    {
+      "finding_id": "5aa5652e2085f3d8",
+      "control_id": "LOG-012",
+      "title": "AWS Config recorder is recording and delivering in the region",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "region/us-east-1",
+      "resource_type": "AWS::Config::ConfigurationRecorder",
+      "severity": "medium",
+      "status": "ERROR",
+      "message": "Permission denied calling DescribeConfigurationRecorders.",
+      "evidence": {
+        "error_type": "ClientError"
+      },
+      "sources": [
+        "config:DescribeConfigurationRecorders",
+        "config:DescribeConfigurationRecorderStatus",
+        "config:DescribeDeliveryChannels",
+        "config:DescribeDeliveryChannelStatus"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Create a configuration recorder and delivery channel, start the recorder, and fix any delivery failures.",
+      "uncertainty": [
+        "Grant the missing read-only permission (see policies/) and re-run; the control result is unknown."
+      ]
+    },
+    {
+      "finding_id": "e33288ff6215e688",
+      "control_id": "NET-001",
+      "title": "Security groups do not allow public ingress to sensitive ports",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "sg-0a1b2c3d4e5f60001",
+      "resource_type": "AWS::EC2::SecurityGroup",
+      "severity": "high",
+      "status": "FAIL",
+      "message": "Sensitive ports are open to the internet.",
+      "evidence": {
+        "group_name": "bastion",
+        "vpc_id": "vpc-01",
+        "open_rules": [
+          {
+            "protocol": "tcp",
+            "from_port": 22,
+            "to_port": 22,
+            "sources": [
+              "0.0.0.0/0"
+            ],
+            "sensitive_ports": [
+              22
+            ]
+          }
+        ],
+        "sensitive_ports_checked": [
+          21,
+          22,
+          23,
+          445,
+          1433,
+          1521,
+          2049,
+          3306,
+          3389,
+          5432,
+          5900,
+          6379,
+          9200,
+          11211,
+          27017
+        ]
+      },
+      "sources": [
+        "ec2:DescribeSecurityGroups"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Restrict sources to known CIDRs, security groups or a VPN; use SSM Session Manager instead of SSH or RDP.",
+      "uncertainty": [
+        "Only exact 0.0.0.0/0 and ::/0 are treated as public; broad CIDRs and attachment to a resource are not evaluated."
+      ]
+    },
+    {
+      "finding_id": "11a0bfb3bfe18ac4",
+      "control_id": "NET-001",
+      "title": "Security groups do not allow public ingress to sensitive ports",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "sg-0a1b2c3d4e5f60002",
+      "resource_type": "AWS::EC2::SecurityGroup",
+      "severity": "high",
+      "status": "PASS",
+      "message": "No sensitive port is open to the internet.",
+      "evidence": {
+        "group_name": "app",
+        "vpc_id": "vpc-01",
+        "open_rules": [],
+        "sensitive_ports_checked": [
+          21,
+          22,
+          23,
+          445,
+          1433,
+          1521,
+          2049,
+          3306,
+          3389,
+          5432,
+          5900,
+          6379,
+          9200,
+          11211,
+          27017
+        ]
+      },
+      "sources": [
+        "ec2:DescribeSecurityGroups"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Restrict sources to known CIDRs, security groups or a VPN; use SSM Session Manager instead of SSH or RDP.",
+      "uncertainty": [
+        "Only exact 0.0.0.0/0 and ::/0 are treated as public; broad CIDRs and attachment to a resource are not evaluated."
+      ]
+    },
+    {
+      "finding_id": "290d7fd22ae7eab8",
+      "control_id": "STO-002",
+      "title": "S3 bucket Block Public Access is effectively enabled",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "arn:aws:s3:::example-open-bucket",
+      "resource_type": "AWS::S3::Bucket",
+      "severity": "high",
+      "status": "FAIL",
+      "message": "Block Public Access is not fully enabled for this bucket.",
+      "evidence": {
+        "bucket": "example-open-bucket",
+        "effective": {
+          "BlockPublicAcls": false,
+          "IgnorePublicAcls": false,
+          "BlockPublicPolicy": false,
+          "RestrictPublicBuckets": false
+        },
+        "bucket_level_configured": false
+      },
+      "sources": [
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetAccountPublicAccessBlock"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Enable all four Block Public Access settings on the bucket or at account level.",
+      "uncertainty": []
+    },
+    {
+      "finding_id": "9374cc14b4fd1a65",
+      "control_id": "STO-002",
+      "title": "S3 bucket Block Public Access is effectively enabled",
+      "account_id": "********3333",
+      "region": "us-east-1",
+      "resource_id": "arn:aws:s3:::example-private-bucket",
+      "resource_type": "AWS::S3::Bucket",
+      "severity": "high",
+      "status": "PASS",
+      "message": "Block Public Access is effectively fully enabled.",
+      "evidence": {
+        "bucket": "example-private-bucket",
+        "effective": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        },
+        "bucket_level_configured": true
+      },
+      "sources": [
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetAccountPublicAccessBlock"
+      ],
+      "observed_at": "2026-10-16T12:00:00Z",
+      "remediation": "Enable all four Block Public Access settings on the bucket or at account level.",
+      "uncertainty": []
+    }
+  ]
+}

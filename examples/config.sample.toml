@@ -1,0 +1,39 @@
+# Sample configuration. Contains no credentials: credentials come from the standard
+# AWS credential chain (SSO, environment, shared config, instance role).
+# Keys such as aws_secret_access_key are rejected by `awsauditor config validate`.
+
+[aws]
+# profile = "audit-readonly"      # name of a profile in ~/.aws/config (not a secret)
+# role_arn = "arn:aws:iam::123456789012:role/SecurityAuditReadOnly"
+# The external ID, if the role requires one, is read from AWSAUDITOR_EXTERNAL_ID.
+max_attempts = 8
+connect_timeout = 10
+read_timeout = 60
+
+[audit]
+profile = "baseline"              # built-ins: baseline (high+critical), full; or define below
+regions = ["us-east-1"]           # [] or ["all"] audits every enabled region
+workers = 4
+
+[thresholds]
+unused_credential_days = 45
+access_key_max_age_days = 90
+password_min_length = 14
+password_reuse_prevention = 24
+log_retention_min_days = 365
+sensitive_ports = [21, 22, 23, 445, 1433, 1521, 2049, 3306, 3389, 5432, 5900, 6379, 9200, 11211, 27017]
+
+[redaction]
+enabled = false
+account_ids = true
+access_key_ids = true
+ip_addresses = false
+
+[output]
+directory = "audit-output"
+formats = ["json", "html"]
+
+# Custom audit profile: select by service, include/exclude IDs or minimum severity.
+[profiles.identity-and-logging]
+services = ["iam", "cloudtrail", "guardduty", "config"]
+min_severity = "medium"

@@ -1,0 +1,822 @@
+{
+  "schema_version": 1,
+  "catalog_version": "2026.10.0",
+  "disclaimer": "Controls are inspired by the CIS AWS Foundations Benchmark and AWS security best practices. This catalog is not a CIS-certified implementation and does not cover the full benchmark.",
+  "controls": [
+    {
+      "id": "IAM-001",
+      "title": "Root account has MFA enabled",
+      "service": "iam",
+      "severity": "critical",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: root account protection",
+      "rationale": "The root user has unrestricted access and cannot be limited by IAM policy; MFA is the primary compensating control.",
+      "evidence_requirements": [
+        "iam:GetAccountSummary field AccountMFAEnabled"
+      ],
+      "remediation": "Sign in as root, register a hardware or virtual MFA device under Security credentials, and store recovery material offline. Prefer a hardware or passkey MFA for root.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user_manage_mfa.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GetAccountSummary"
+      ]
+    },
+    {
+      "id": "IAM-002",
+      "title": "Root account has no active access keys",
+      "service": "iam",
+      "severity": "critical",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: root account protection",
+      "rationale": "Root access keys grant unrestricted programmatic access and are rarely required.",
+      "evidence_requirements": [
+        "iam:GetAccountSummary field AccountAccessKeysPresent"
+      ],
+      "remediation": "Sign in as root and delete the root access keys; use IAM roles or IAM Identity Center for programmatic access.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user_manage_mfa.html",
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GetAccountSummary"
+      ]
+    },
+    {
+      "id": "IAM-003",
+      "title": "IAM users with console access have MFA",
+      "service": "iam",
+      "severity": "high",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: multi-factor authentication",
+      "rationale": "Passwords alone are vulnerable to phishing and credential stuffing.",
+      "evidence_requirements": [
+        "Credential report columns password_enabled and mfa_active per user"
+      ],
+      "remediation": "Enrol each console user in MFA, or remove console access and federate through IAM Identity Center.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_getting-report.html",
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GenerateCredentialReport",
+        "iam:GetCredentialReport"
+      ]
+    },
+    {
+      "id": "IAM-004",
+      "title": "Credentials unused beyond the configured threshold are disabled",
+      "service": "iam",
+      "severity": "medium",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: credential hygiene",
+      "rationale": "Unused passwords and access keys widen the attack surface without delivering value.",
+      "evidence_requirements": [
+        "Credential report last-used and creation/rotation dates for passwords and access keys"
+      ],
+      "remediation": "Deactivate then delete credentials unused for the configured number of days (default 45) after confirming with the owner.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_getting-report.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GenerateCredentialReport",
+        "iam:GetCredentialReport"
+      ]
+    },
+    {
+      "id": "IAM-005",
+      "title": "Active access keys are rotated within the configured age",
+      "service": "iam",
+      "severity": "medium",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: credential hygiene",
+      "rationale": "Long-lived access keys increase exposure time after an undetected leak.",
+      "evidence_requirements": [
+        "Credential report access_key_N_last_rotated for active keys"
+      ],
+      "remediation": "Create a replacement key, migrate workloads, then deactivate and delete the old key; prefer roles over long-lived keys.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_getting-report.html",
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GenerateCredentialReport",
+        "iam:GetCredentialReport"
+      ]
+    },
+    {
+      "id": "IAM-006",
+      "title": "No attached customer-managed policy grants full administrative access",
+      "service": "iam",
+      "severity": "high",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: least privilege",
+      "rationale": "Policies allowing all actions on all resources defeat least privilege and magnify the impact of any credential compromise.",
+      "evidence_requirements": [
+        "Policy document statements (effect, actions, resources, condition presence) of attached customer-managed policies"
+      ],
+      "remediation": "Replace the policy with scoped permissions (use IAM Access Analyzer policy generation) and detach the administrative policy from principals that do not need it.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GetPolicyVersion",
+        "iam:ListPolicies"
+      ]
+    },
+    {
+      "id": "IAM-007",
+      "title": "IAM password policy meets the configured baseline",
+      "service": "iam",
+      "severity": "medium",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: password policy",
+      "rationale": "A weak or absent account password policy permits guessable IAM user passwords.",
+      "evidence_requirements": [
+        "iam:GetAccountPasswordPolicy fields MinimumPasswordLength and PasswordReusePrevention"
+      ],
+      "remediation": "Set a password policy with the configured minimum length (default 14) and reuse prevention (default 24), or eliminate IAM user passwords via federation.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GetAccountPasswordPolicy"
+      ]
+    },
+    {
+      "id": "IAM-008",
+      "title": "IAM Access Analyzer is active in the region",
+      "service": "iam",
+      "severity": "low",
+      "scope": "region",
+      "benchmark_theme": "Identity and Access Management: external access analysis",
+      "rationale": "Access Analyzer identifies resources shared outside the account or organization.",
+      "evidence_requirements": [
+        "accessanalyzer:ListAnalyzers entries with status ACTIVE and type ACCOUNT or ORGANIZATION"
+      ],
+      "remediation": "Create an account or organization analyzer in each in-use region.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "access-analyzer:ListAnalyzers"
+      ]
+    },
+    {
+      "id": "IAM-009",
+      "title": "No attached customer-managed policy uses broad service wildcards or Allow with NotAction",
+      "service": "iam",
+      "severity": "medium",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: least privilege",
+      "rationale": "Service-wide wildcards on all resources, and Allow combined with NotAction, grant far more than is usually intended.",
+      "evidence_requirements": [
+        "Policy document statements of attached customer-managed policies"
+      ],
+      "remediation": "Enumerate the specific actions and resource ARNs required and replace wildcard or NotAction grants.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:GetPolicyVersion",
+        "iam:ListPolicies"
+      ]
+    },
+    {
+      "id": "LOG-001",
+      "title": "A multi-region CloudTrail trail is logging",
+      "service": "cloudtrail",
+      "severity": "high",
+      "scope": "account",
+      "benchmark_theme": "Logging and monitoring: CloudTrail",
+      "rationale": "Without an active multi-region trail, API activity in unused regions can go unrecorded.",
+      "evidence_requirements": [
+        "cloudtrail:DescribeTrails IsMultiRegionTrail",
+        "cloudtrail:GetTrailStatus IsLogging"
+      ],
+      "remediation": "Create a multi-region trail (or organization trail) and start logging.",
+      "references": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/receive-cloudtrail-log-files-from-multiple-regions.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetTrailStatus"
+      ]
+    },
+    {
+      "id": "LOG-002",
+      "title": "CloudTrail log file validation is enabled",
+      "service": "cloudtrail",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail",
+      "rationale": "Digest files let you detect modification or deletion of delivered log files.",
+      "evidence_requirements": [
+        "cloudtrail:DescribeTrails LogFileValidationEnabled"
+      ],
+      "remediation": "Enable log file validation on the trail.",
+      "references": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-intro.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails"
+      ]
+    },
+    {
+      "id": "LOG-003",
+      "title": "CloudTrail is logging and delivering to S3 without errors",
+      "service": "cloudtrail",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail",
+      "rationale": "A trail that is stopped, has no destination, or reports delivery errors silently loses audit evidence.",
+      "evidence_requirements": [
+        "cloudtrail:DescribeTrails S3BucketName",
+        "cloudtrail:GetTrailStatus IsLogging, LatestDeliveryError"
+      ],
+      "remediation": "Start logging, correct the bucket policy or KMS permissions named in the delivery error.",
+      "references": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetTrailStatus"
+      ]
+    },
+    {
+      "id": "LOG-004",
+      "title": "CloudTrail delivers events to CloudWatch Logs",
+      "service": "cloudtrail",
+      "severity": "low",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail",
+      "rationale": "CloudWatch Logs integration enables near-real-time metric filters and alarms.",
+      "evidence_requirements": [
+        "cloudtrail:DescribeTrails CloudWatchLogsLogGroupArn",
+        "cloudtrail:GetTrailStatus LatestCloudWatchLogsDeliveryError"
+      ],
+      "remediation": "Configure the trail to send events to a CloudWatch Logs log group.",
+      "references": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/monitor-cloudtrail-log-files-with-cloudwatch-logs.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetTrailStatus"
+      ]
+    },
+    {
+      "id": "LOG-005",
+      "title": "CloudTrail S3 bucket is not publicly accessible",
+      "service": "cloudtrail",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail log bucket protection",
+      "rationale": "Public access to audit logs discloses sensitive account activity and permits tampering if write access is exposed.",
+      "evidence_requirements": [
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetAccountPublicAccessBlock"
+      ],
+      "remediation": "Enable all four S3 Block Public Access settings on the bucket and remove public statements from its policy.",
+      "references": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html",
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetBucketPublicAccessBlock"
+      ]
+    },
+    {
+      "id": "LOG-006",
+      "title": "CloudTrail S3 bucket has server access logging enabled",
+      "service": "cloudtrail",
+      "severity": "low",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail log bucket protection",
+      "rationale": "Access logs on the audit-log bucket record who read or attempted to change evidence.",
+      "evidence_requirements": [
+        "s3:GetBucketLogging"
+      ],
+      "remediation": "Enable server access logging to a separate, protected logging bucket.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ServerLogs.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "s3:GetBucketLocation",
+        "s3:GetBucketLogging"
+      ]
+    },
+    {
+      "id": "LOG-007",
+      "title": "CloudWatch log groups retain logs for at least the configured period",
+      "service": "logs",
+      "severity": "low",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: log retention",
+      "rationale": "Short retention discards evidence needed for investigations.",
+      "evidence_requirements": [
+        "logs:DescribeLogGroups retentionInDays (absent means never expire)"
+      ],
+      "remediation": "Set the retention policy of each log group to at least the configured number of days (default 365) or export to long-term storage.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "logs:DescribeLogGroups"
+      ]
+    },
+    {
+      "id": "LOG-008",
+      "title": "Unauthorized API call metric filter and alarm exist",
+      "service": "cloudwatch",
+      "severity": "low",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail metric filters and alarms",
+      "rationale": "Spikes in unauthorized or access-denied calls often indicate reconnaissance or misuse.",
+      "evidence_requirements": [
+        "logs:DescribeMetricFilters filterPattern",
+        "cloudwatch:DescribeAlarmsForMetric AlarmActions"
+      ],
+      "remediation": "Create a metric filter on the CloudTrail log group for UnauthorizedOperation and AccessDenied* error codes, and an alarm with a notification action.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/monitor-cloudtrail-log-files-with-cloudwatch-logs.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "cloudwatch:DescribeAlarmsForMetric",
+        "logs:DescribeMetricFilters"
+      ]
+    },
+    {
+      "id": "LOG-009",
+      "title": "Root account usage metric filter and alarm exist",
+      "service": "cloudwatch",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail metric filters and alarms",
+      "rationale": "Any use of the root account is a rare, high-signal event.",
+      "evidence_requirements": [
+        "logs:DescribeMetricFilters filterPattern",
+        "cloudwatch:DescribeAlarmsForMetric AlarmActions"
+      ],
+      "remediation": "Create a metric filter on userIdentity.type = Root (excluding AwsServiceEvent) and an alarm with a notification action.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/monitor-cloudtrail-log-files-with-cloudwatch-logs.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "cloudwatch:DescribeAlarmsForMetric",
+        "logs:DescribeMetricFilters"
+      ]
+    },
+    {
+      "id": "LOG-010",
+      "title": "Console sign-in without MFA metric filter and alarm exist",
+      "service": "cloudwatch",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: CloudTrail metric filters and alarms",
+      "rationale": "Console sign-ins without MFA indicate accounts not protected by a second factor.",
+      "evidence_requirements": [
+        "logs:DescribeMetricFilters filterPattern",
+        "cloudwatch:DescribeAlarmsForMetric AlarmActions"
+      ],
+      "remediation": "Create a metric filter for ConsoleLogin events where MFAUsed is No and an alarm with a notification action.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/monitor-cloudtrail-log-files-with-cloudwatch-logs.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "cloudwatch:DescribeAlarmsForMetric",
+        "logs:DescribeMetricFilters"
+      ]
+    },
+    {
+      "id": "LOG-011",
+      "title": "GuardDuty detector is enabled in the region",
+      "service": "guardduty",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: threat detection",
+      "rationale": "GuardDuty provides managed threat detection over CloudTrail, VPC flow and DNS logs.",
+      "evidence_requirements": [
+        "guardduty:ListDetectors",
+        "guardduty:GetDetector Status"
+      ],
+      "remediation": "Enable GuardDuty in every in-use region, ideally centrally managed through AWS Organizations.",
+      "references": [
+        "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "guardduty:GetDetector",
+        "guardduty:ListDetectors"
+      ]
+    },
+    {
+      "id": "LOG-012",
+      "title": "AWS Config recorder is recording and delivering in the region",
+      "service": "config",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Logging and monitoring: configuration recording",
+      "rationale": "Configuration history supports change tracking and incident investigation.",
+      "evidence_requirements": [
+        "config:DescribeConfigurationRecorders",
+        "config:DescribeConfigurationRecorderStatus",
+        "config:DescribeDeliveryChannels",
+        "config:DescribeDeliveryChannelStatus"
+      ],
+      "remediation": "Create a configuration recorder and delivery channel, start the recorder, and fix any delivery failures.",
+      "references": [
+        "https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "config:DescribeConfigurationRecorderStatus",
+        "config:DescribeConfigurationRecorders",
+        "config:DescribeDeliveryChannelStatus",
+        "config:DescribeDeliveryChannels"
+      ]
+    },
+    {
+      "id": "NET-001",
+      "title": "Security groups do not allow public ingress to sensitive ports",
+      "service": "ec2",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Networking: security group exposure",
+      "rationale": "Administrative and database ports reachable from the internet are routinely scanned and attacked.",
+      "evidence_requirements": [
+        "ec2:DescribeSecurityGroups IpPermissions with 0.0.0.0/0 or ::/0 sources and port ranges"
+      ],
+      "remediation": "Restrict sources to known CIDRs, security groups or a VPN; use SSM Session Manager instead of SSH or RDP.",
+      "references": [
+        "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeSecurityGroups"
+      ]
+    },
+    {
+      "id": "NET-002",
+      "title": "Default security groups restrict all traffic",
+      "service": "ec2",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Networking: security group exposure",
+      "rationale": "Resources launched without an explicit group fall into the default group; leaving it permissive creates accidental exposure.",
+      "evidence_requirements": [
+        "ec2:DescribeSecurityGroups default group ingress and egress rule counts"
+      ],
+      "remediation": "Remove all inbound and outbound rules from the default security group in every VPC and use purpose-built groups.",
+      "references": [
+        "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeSecurityGroups"
+      ]
+    },
+    {
+      "id": "NET-003",
+      "title": "Security groups do not allow public ingress on all ports or protocols",
+      "service": "ec2",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Networking: security group exposure",
+      "rationale": "Allowing all traffic from the internet exposes every listening service on attached resources.",
+      "evidence_requirements": [
+        "ec2:DescribeSecurityGroups rules with protocol -1 or the full port range from 0.0.0.0/0 or ::/0"
+      ],
+      "remediation": "Replace the rule with the specific ports and sources required.",
+      "references": [
+        "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeSecurityGroups"
+      ]
+    },
+    {
+      "id": "NET-004",
+      "title": "Security groups do not allow unrestricted egress on all protocols",
+      "service": "ec2",
+      "severity": "low",
+      "scope": "region",
+      "benchmark_theme": "Networking: security group exposure",
+      "rationale": "Unrestricted egress eases data exfiltration and command-and-control; it is the AWS default, so this is a hardening signal rather than a defect. Default security groups are covered by NET-002.",
+      "evidence_requirements": [
+        "ec2:DescribeSecurityGroups IpPermissionsEgress with protocol -1 to 0.0.0.0/0 or ::/0"
+      ],
+      "remediation": "Limit egress to required destinations and ports where the workload allows it.",
+      "references": [
+        "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeSecurityGroups"
+      ]
+    },
+    {
+      "id": "NET-005",
+      "title": "No EBS snapshots owned by the account are public",
+      "service": "ec2",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Networking: public resource exposure",
+      "rationale": "A public snapshot lets any AWS account copy its data.",
+      "evidence_requirements": [
+        "ec2:DescribeSnapshots with OwnerIds=self and RestorableByUserIds=all"
+      ],
+      "remediation": "Make the snapshot private (modify snapshot attribute to remove the all group) and review whether its data was exposed.",
+      "references": [
+        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeSnapshots"
+      ]
+    },
+    {
+      "id": "NET-006",
+      "title": "No AMIs owned by the account are public",
+      "service": "ec2",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Networking: public resource exposure",
+      "rationale": "Public AMIs may embed credentials, keys or proprietary software.",
+      "evidence_requirements": [
+        "ec2:DescribeImages with Owners=self and is-public=true"
+      ],
+      "remediation": "Make the AMI private and rotate any secrets it may contain.",
+      "references": [
+        "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeImages"
+      ]
+    },
+    {
+      "id": "STO-001",
+      "title": "S3 account-level Block Public Access is fully enabled",
+      "service": "s3",
+      "severity": "medium",
+      "scope": "account",
+      "benchmark_theme": "Storage: S3 public access",
+      "rationale": "The account-level setting is a guardrail that overrides bucket-level misconfiguration.",
+      "evidence_requirements": [
+        "s3control:GetPublicAccessBlock four settings"
+      ],
+      "remediation": "Enable all four account-level Block Public Access settings.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "s3:GetAccountPublicAccessBlock"
+      ]
+    },
+    {
+      "id": "STO-002",
+      "title": "S3 bucket Block Public Access is effectively enabled",
+      "service": "s3",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Storage: S3 public access",
+      "rationale": "Block Public Access prevents ACLs and policies from making data public. Effective protection combines account and bucket settings.",
+      "evidence_requirements": [
+        "s3:GetPublicAccessBlock (bucket)",
+        "s3control:GetPublicAccessBlock (account)"
+      ],
+      "remediation": "Enable all four Block Public Access settings on the bucket or at account level.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "s3:GetAccountPublicAccessBlock",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:ListAllMyBuckets"
+      ]
+    },
+    {
+      "id": "STO-003",
+      "title": "S3 bucket policy does not make the bucket public",
+      "service": "s3",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Storage: S3 public access",
+      "rationale": "S3's own policy-status evaluation reports whether the bucket policy grants public access.",
+      "evidence_requirements": [
+        "s3:GetBucketPolicyStatus IsPublic"
+      ],
+      "remediation": "Remove wildcard principals from the bucket policy or constrain them with conditions such as aws:SourceVpce or aws:PrincipalOrgID.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicyStatus",
+        "s3:ListAllMyBuckets"
+      ]
+    },
+    {
+      "id": "STO-004",
+      "title": "S3 bucket has default encryption configured",
+      "service": "s3",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption at rest",
+      "rationale": "Default encryption configuration shows intended at-rest protection. It does not prove that every existing object is encrypted with the expected key, nor that key policies are sound.",
+      "evidence_requirements": [
+        "s3:GetEncryptionConfiguration algorithm and key id presence"
+      ],
+      "remediation": "Configure default encryption (SSE-KMS with a customer-managed key where key control is required) and re-encrypt existing objects if needed.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "s3:GetBucketLocation",
+        "s3:GetEncryptionConfiguration",
+        "s3:ListAllMyBuckets"
+      ]
+    },
+    {
+      "id": "STO-005",
+      "title": "S3 bucket has server access logging enabled",
+      "service": "s3",
+      "severity": "low",
+      "scope": "region",
+      "benchmark_theme": "Storage: S3 logging",
+      "rationale": "Access logs support investigation of data access.",
+      "evidence_requirements": [
+        "s3:GetBucketLogging LoggingEnabled"
+      ],
+      "remediation": "Enable server access logging to a dedicated bucket, or rely on CloudTrail data events where appropriate.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ServerLogs.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "s3:GetBucketLocation",
+        "s3:GetBucketLogging",
+        "s3:ListAllMyBuckets"
+      ]
+    },
+    {
+      "id": "STO-006",
+      "title": "S3 bucket policy denies non-TLS requests",
+      "service": "s3",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption in transit",
+      "rationale": "Without a deny on aws:SecureTransport=false, clients can use unencrypted HTTP.",
+      "evidence_requirements": [
+        "s3:GetBucketPolicy statements with Deny and aws:SecureTransport false"
+      ],
+      "remediation": "Add a bucket policy statement denying all S3 actions when aws:SecureTransport is false.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
+        "s3:ListAllMyBuckets"
+      ]
+    },
+    {
+      "id": "EBS-001",
+      "title": "EBS encryption by default is enabled in the region",
+      "service": "ec2",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption at rest",
+      "rationale": "Default encryption ensures new volumes and snapshot copies are encrypted without per-volume action.",
+      "evidence_requirements": [
+        "ec2:GetEbsEncryptionByDefault"
+      ],
+      "remediation": "Enable EBS encryption by default in each in-use region.",
+      "references": [
+        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:GetEbsEncryptionByDefault"
+      ]
+    },
+    {
+      "id": "EBS-002",
+      "title": "EBS volumes are encrypted",
+      "service": "ec2",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption at rest",
+      "rationale": "The Encrypted attribute shows configured encryption; it does not verify key policy, grants or key rotation.",
+      "evidence_requirements": [
+        "ec2:DescribeVolumes Encrypted"
+      ],
+      "remediation": "Create an encrypted snapshot copy, restore it to a new encrypted volume and replace the unencrypted volume.",
+      "references": [
+        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeVolumes"
+      ]
+    },
+    {
+      "id": "RDS-001",
+      "title": "RDS DB instances are not publicly accessible",
+      "service": "rds",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Storage: database exposure",
+      "rationale": "PubliclyAccessible resolves the endpoint to a public IP; actual reachability also depends on security groups and routing, which this control does not evaluate.",
+      "evidence_requirements": [
+        "rds:DescribeDBInstances PubliclyAccessible"
+      ],
+      "remediation": "Modify the instance to disable public accessibility and place it in private subnets.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "rds:DescribeDBInstances"
+      ]
+    },
+    {
+      "id": "RDS-002",
+      "title": "RDS DB instances have storage encryption enabled",
+      "service": "rds",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption at rest",
+      "rationale": "StorageEncrypted shows configured encryption; it does not verify key policy or grants.",
+      "evidence_requirements": [
+        "rds:DescribeDBInstances StorageEncrypted"
+      ],
+      "remediation": "Restore an encrypted copy from a snapshot and cut over; encryption cannot be enabled in place.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "rds:DescribeDBInstances"
+      ]
+    },
+    {
+      "id": "COV-001",
+      "title": "All enabled regions in the account were audited",
+      "service": "ec2",
+      "severity": "low",
+      "scope": "account",
+      "benchmark_theme": "Coverage",
+      "rationale": "Resources in regions that were not audited are unassessed; attackers favour unmonitored regions.",
+      "evidence_requirements": [
+        "ec2:DescribeRegions enabled regions compared with audited regions"
+      ],
+      "remediation": "Re-run the audit with --regions all, or document why specific regions are out of scope.",
+      "references": [
+        "https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeRegions"
+      ]
+    }
+  ]
+}

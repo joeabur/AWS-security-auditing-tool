@@ -1,0 +1,61 @@
+[project]
+name = "aws-security-auditing-tool"
+version = "0.1.0"
+description = "Read-only AWS security configuration auditor producing evidence-backed findings"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.43,<1.44",
+    "pydantic>=2.14,<3",
+    "typer>=0.27,<0.28",
+]
+
+[project.scripts]
+awsauditor = "awsauditor.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1,<10",
+    "pytest-cov>=7.1,<8",
+    "ruff>=0.17,<0.18",
+    "mypy>=2.4,<3",
+    "pip-audit>=2.10,<3",
+    "detect-secrets>=1.5,<2",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/awsauditor"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"controls/catalog.json" = "awsauditor/data/catalog.json"
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+addopts = "-ra --strict-markers"
+markers = ["integration: requires a real AWS sandbox account (never run by default)"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["boto3.*", "botocore.*"]
+ignore_missing_imports = true
