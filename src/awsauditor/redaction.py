@@ -18,10 +18,6 @@ class Redactor:
     def __init__(self, settings: RedactionSettings) -> None:
         self._s = settings
 
-    @property
-    def active(self) -> bool:
-        return self._s.enabled
-
     def text(self, value: str) -> str:
         if not self._s.enabled:
             return value

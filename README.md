@@ -113,17 +113,18 @@ Run on 2026-10-16 in the development environment (Python 3.13.16, boto3 1.43.114
 
 | Gate | Result |
 |---|---|
-| `ruff check` / `ruff format --check` | pass / 53 files formatted |
+| `ruff check` / `ruff format --check` | pass / 55 files formatted |
 | `mypy --strict` (27 source files) | no issues |
-| `pytest tests/unit` | **556 passed**, 0 failed (no AWS credentials, no network to AWS) |
-| Coverage | 98.4 % (gate: 95 %) |
+| `pytest tests/unit` | **582 passed**, 0 failed (no AWS credentials; one test talks only to a localhost HTTP server to prove retry behaviour) |
+| Coverage | 99.8 % (gate: 95 %) |
+| Wheel build + clean-venv install + CLI smoke test | pass (also a CI step) |
 | `pip-audit` on the locked dependency set | no known vulnerabilities |
 | `detect-secrets` | no secrets detected |
 | `tests/integration` | 3 tests, **skipped by default; never run against a real account** |
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml))
 runs the same gates on Python 3.11–3.13 with commit-pinned actions and `contents: read`
-permissions. **The workflow has not yet executed on GitHub**; the commands were run locally.
+permissions. The first CI run on `main` passed on all three Python versions.
 
 ## Documentation
 

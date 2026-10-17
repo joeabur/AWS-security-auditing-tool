@@ -81,7 +81,8 @@ class ClientFactory:
     ) -> None:
         self._session = session
         self._config = Config(
-            retries={"mode": "adaptive", "max_attempts": max_attempts},
+            # total_max_attempts counts the first call (plain max_attempts means retries *after* it)
+            retries={"mode": "adaptive", "total_max_attempts": max_attempts},
             connect_timeout=connect_timeout,
             read_timeout=read_timeout,
             user_agent_extra=f"aws-security-auditing-tool/{__version__}",

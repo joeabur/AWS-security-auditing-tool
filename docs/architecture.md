@@ -52,13 +52,15 @@ actions that produced the evidence), `observed_at` (timezone-aware), `remediatio
 
 ## Error handling, retries, throttling
 
-- Botocore runs in `adaptive` retry mode with a configurable attempt limit (default 8) and
+- Botocore runs in `adaptive` retry mode with a configurable limit on *total* attempts including the first call (default 8; verified against a real local HTTP endpoint, not just stubs) and
   timeouts; throttling that survives the retries is reported as `ERROR` with a message saying so.
 - The credential report is polled with exponential backoff (1 s doubling, capped at 15 s, 8 tries).
 - Each check isolates failures per resource: one denied bucket does not hide the others.
 - A check that raises unexpectedly is converted by the runner into ERROR findings for its
   controls; a check that forgets a selected control yields NOT_ASSESSED. The audit always
   completes with partial results.
+- Expired credentials mid-audit (for example an assumed-role session ending) are reported as `ERROR` with an explicit "credentials expired" message.
+- Cache entries have per-key locks, so a slow call such as the IAM credential report never blocks unrelated checks.
 - Logging never includes credentials or response bodies; error findings keep only the exception
   *type* and the AWS error code context.
 

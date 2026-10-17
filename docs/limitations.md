@@ -29,7 +29,8 @@
 - **Partitions:** GovCloud/China are supported by design (partition from the caller ARN) but
   untested.
 - **Credential lifetime:** an assumed-role session lasts up to `role_duration_seconds` (default
-  1 h); very long audits are not automatically refreshed.
+  1 h); very long audits are not automatically refreshed. Calls after expiry are reported as
+  `ERROR` ("credentials expired"), never as passes.
 - **No live-cloud validation** has been performed (see `integration-testing.md`).
 
 ## Operational limitations

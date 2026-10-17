@@ -277,6 +277,7 @@ def test_factory_caches_clients_and_sets_user_agent(h: Harness) -> None:
     assert a is not h.factory.client("iam", "eu-west-1")
     assert "aws-security-auditing-tool" in a.meta.config.user_agent_extra
     assert a.meta.config.retries["mode"] == "adaptive"
+    assert a.meta.config.retries["total_max_attempts"] == 8
 
 
 # ----------------------------------------------------------------------- identity / role
