@@ -68,6 +68,7 @@ Notes on specific actions:
 | LOG-010 | `cloudtrail:DescribeTrails`, `cloudwatch:DescribeAlarmsForMetric`, `logs:DescribeMetricFilters` |
 | LOG-011 | `guardduty:GetDetector`, `guardduty:ListDetectors` |
 | LOG-012 | `config:DescribeConfigurationRecorderStatus`, `config:DescribeConfigurationRecorders`, `config:DescribeDeliveryChannelStatus`, `config:DescribeDeliveryChannels` |
+| LOG-013 | `cloudtrail:DescribeTrails`, `cloudtrail:GetEventSelectors`, `cloudtrail:GetTrailStatus` |
 | NET-001 | `ec2:DescribeSecurityGroups` |
 | NET-002 | `ec2:DescribeSecurityGroups` |
 | NET-003 | `ec2:DescribeSecurityGroups` |

@@ -550,6 +550,29 @@
       ]
     },
     {
+      "id": "LOG-013",
+      "title": "A multi-region trail records all management events",
+      "service": "cloudtrail",
+      "severity": "medium",
+      "scope": "account",
+      "benchmark_theme": "Logging and monitoring: CloudTrail",
+      "rationale": "A trail that is logging but filters out read or write management events leaves gaps in the audit record of control-plane activity.",
+      "evidence_requirements": [
+        "cloudtrail:GetEventSelectors on each logging multi-region trail: IncludeManagementEvents with ReadWriteType All and no excluded sources, or an advanced selector for the Management category with no further filters"
+      ],
+      "remediation": "Update the trail's event selectors to include all read and write management events and remove management event source exclusions.",
+      "references": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/filtering-data-events.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetEventSelectors",
+        "cloudtrail:GetTrailStatus"
+      ]
+    },
+    {
       "id": "NET-001",
       "title": "Security groups do not allow public ingress to sensitive ports",
       "service": "ec2",

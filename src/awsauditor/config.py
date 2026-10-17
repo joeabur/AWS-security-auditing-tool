@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tomllib
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,20 @@ _SECRET_KEYS = {
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+REPORT_FORMATS = ("json", "csv", "html", "sarif")
+
+
+class Suppression(_Strict):
+    """An explicit, expiring acceptance of a FAIL finding. Never hides it from reports."""
+
+    control_id: str = Field(pattern=r"^[A-Z]{2,4}-\d{3}$")
+    resource: str = "*"  # fnmatch pattern against the finding's resource_id
+    region: str = "*"  # fnmatch pattern against the finding's region
+    reason: str = Field(min_length=10)
+    owner: str = Field(min_length=3)
+    expires: date
 
 
 class ProfileSpec(_Strict):
@@ -115,7 +130,7 @@ class OutputSettings(_Strict):
     @field_validator("formats")
     @classmethod
     def _formats(cls, v: list[str]) -> list[str]:
-        bad = set(v) - {"json", "csv", "html"}
+        bad = set(v) - set(REPORT_FORMATS)
         if bad:
             raise ValueError(f"unsupported formats: {sorted(bad)}")
         return v
@@ -128,6 +143,7 @@ class AuditConfig(_Strict):
     redaction: RedactionSettings = Field(default_factory=RedactionSettings)
     output: OutputSettings = Field(default_factory=OutputSettings)
     profiles: dict[str, ProfileSpec] = Field(default_factory=dict)
+    suppressions: list[Suppression] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _profile_exists(self) -> AuditConfig:
@@ -147,6 +163,9 @@ def _find_secret_keys(data: Any, path: str = "") -> list[str]:
             if str(k).lower() in _SECRET_KEYS:
                 hits.append(here)
             hits.extend(_find_secret_keys(v, here))
+    elif isinstance(data, list):
+        for i, item in enumerate(data):
+            hits.extend(_find_secret_keys(item, f"{path}[{i}]"))
     return hits
 
 

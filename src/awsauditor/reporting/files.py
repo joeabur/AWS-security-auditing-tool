@@ -16,6 +16,6 @@ def write_report_file(path: Path, content: str, *, overwrite: bool = False) -> N
         fd = os.open(path, flags, 0o600)
     except FileExistsError as exc:
         raise AuditorError(f"{path} exists; use --force to overwrite") from exc
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+    with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
         fh.write(content)
     os.chmod(path, 0o600)

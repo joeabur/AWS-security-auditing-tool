@@ -11,6 +11,7 @@ import pytest
 from typer.testing import CliRunner
 
 from awsauditor import cli
+from awsauditor.catalog import load_catalog
 from awsauditor.cli import app
 
 from .conftest import ACCOUNT, Harness
@@ -66,7 +67,10 @@ def test_controls_list_and_show() -> None:
     out = runner.invoke(app, ["controls", "list", "--service", "s3"])
     assert out.exit_code == 0 and "STO-001" in out.stdout and "IAM-001" not in out.stdout
     data = json.loads(runner.invoke(app, ["controls", "list", "--format", "json"]).stdout)
-    assert len(data) == 40 and {"id", "severity", "remediation", "references"} <= data[0].keys()
+    assert (
+        len(data) == len(load_catalog().controls)
+        and {"id", "severity", "remediation", "references"} <= data[0].keys()
+    )
     shown = runner.invoke(app, ["controls", "show", "iam-001"])
     assert shown.exit_code == 0 and json.loads(shown.stdout)["id"] == "IAM-001"
     assert runner.invoke(app, ["controls", "show", "NOPE-1"]).exit_code == 2
@@ -134,7 +138,7 @@ def test_audit_run_writes_protected_reports(
     )
     assert res.exit_code == 0, res.output
     files = sorted(out.iterdir())
-    assert [f.suffix for f in files] == [".csv", ".html", ".json"]
+    assert [f.suffix for f in files] == [".csv", ".html", ".json", ".sha256"]
     assert all(stat.S_IMODE(os.stat(f).st_mode) == 0o600 for f in files)
     data = json.loads(next(f for f in files if f.suffix == ".json").read_text())
     assert data["account_id"] == ACCOUNT and data["regions"] == ["us-east-1"]
@@ -167,7 +171,7 @@ def test_audit_run_redaction_and_exit_codes(
         ],
     )
     assert res.exit_code == 1  # IAM-001 (critical) failed
-    text = next(out.iterdir()).read_text()
+    text = next(out.glob("*.json")).read_text()
     assert ACCOUNT not in text and "3333" in text
     # existing report is never silently overwritten
     wire(monkeypatch, mfa=0)
@@ -251,7 +255,7 @@ def saved_report(monkeypatch: pytest.MonkeyPatch, cfg: Path, tmp_path: Path) -> 
             ACCOUNT,
         ],
     )
-    return next(out.iterdir())
+    return next(out.glob("*.json"))
 
 
 def test_findings_filter(saved_report: Path) -> None:

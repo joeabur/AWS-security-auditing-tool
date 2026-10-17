@@ -44,6 +44,7 @@ security best practices. This project:
 | LOG-010 | medium | region | Console sign-in without MFA metric filter and alarm exist | Logging and monitoring: CloudTrail metric filters and alarms |
 | LOG-011 | medium | region | GuardDuty detector is enabled in the region | Logging and monitoring: threat detection |
 | LOG-012 | medium | region | AWS Config recorder is recording and delivering in the region | Logging and monitoring: configuration recording |
+| LOG-013 | medium | account | A multi-region trail records all management events | Logging and monitoring: CloudTrail |
 | NET-001 | high | region | Security groups do not allow public ingress to sensitive ports | Networking: security group exposure |
 | NET-002 | medium | region | Default security groups restrict all traffic | Networking: security group exposure |
 | NET-003 | high | region | Security groups do not allow public ingress on all ports or protocols | Networking: security group exposure |

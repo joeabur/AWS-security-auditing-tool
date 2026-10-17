@@ -28,6 +28,7 @@ _CSV_COLUMNS = [
     "uncertainty",
     "sources",
     "evidence",
+    "suppression",
 ]
 
 
@@ -57,6 +58,9 @@ def to_csv(report: Report, redactor: Redactor) -> str:
         row["uncertainty"] = " | ".join(f["uncertainty"])
         row["sources"] = " ".join(f["sources"])
         row["evidence"] = json.dumps(f["evidence"], sort_keys=True)
+        row["suppression"] = (
+            json.dumps(f["suppression"], sort_keys=True) if f["suppression"] else ""
+        )
         writer.writerow([_csv_safe(row[c]) for c in _CSV_COLUMNS])
     return buf.getvalue()
 
@@ -107,6 +111,9 @@ def to_html(report: Report, redactor: Redactor) -> str:
             detail += f"\nRemediation: {f['remediation']}"
         if f["uncertainty"]:
             detail += "\nUncertainty: " + " ".join(f["uncertainty"])
+        if f["suppression"]:
+            sup = f["suppression"]
+            detail += f"\nSUPPRESSED until {sup['expires']} by {sup['owner']}: {sup['reason']}"
         rows.append(
             f"<tr><td class='{_e(f['status'])}'>{_e(f['status'])}</td><td>{_e(f['severity'])}</td>"
             f"<td>{_e(f['control_id'])}</td><td>{_e(f['region'])}</td>"

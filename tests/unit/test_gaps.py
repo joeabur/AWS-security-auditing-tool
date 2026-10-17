@@ -352,7 +352,7 @@ def test_interactive_confirmation_accepts_only_the_exact_account_id(
         input=f"  {ACCOUNT}  \n",
     )
     assert good.exit_code == 0, good.output
-    assert "Type the account ID" in good.output and len(list(out.iterdir())) == 1
+    assert "Type the account ID" in good.output and len(list(out.glob("*.json"))) == 1
 
 
 @pytest.mark.parametrize("sub", ["plan", "run"])
