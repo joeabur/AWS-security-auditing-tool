@@ -22,6 +22,7 @@ from .redaction import Redactor
 from .regions import RegionPlan, plan_regions
 from .reporting import (
     build_report,
+    diff_reports,
     filter_findings,
     load_report,
     to_csv,
@@ -222,6 +223,9 @@ def audit_run(
         Severity | None, typer.Option(help="Exit 1 if a FAIL at/above this severity exists.")
     ] = None,
     strict: Annotated[bool, typer.Option(help="Exit 3 if any control result is unknown.")] = False,
+    workers: Annotated[
+        int | None, typer.Option(min=1, max=16, help="Parallel API workers (default: config).")
+    ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ) -> None:
     """Run an audit after explicit account confirmation."""
@@ -230,6 +234,8 @@ def audit_run(
         cfg = load_config(config_path)
         if redact is not None:
             cfg.redaction.enabled = redact
+        if workers is not None:
+            cfg.audit.workers = workers
         name, controls, factory, identity, home, plan = _prepare(
             cfg, aws_profile, role_arn, regions, audit_profile
         )
@@ -361,6 +367,45 @@ def report_export(
     except AuditorError as exc:
         _fail(str(exc))
     typer.echo(f"wrote {output}")
+
+
+@report_app.command("diff")
+def report_diff(
+    old_report: Path,
+    new_report: Path,
+    fmt: Annotated[str, typer.Option("--format", help="table or json.")] = "table",
+    fail_on_regression: Annotated[
+        bool, typer.Option(help="Exit 1 if any control newly fails.")
+    ] = False,
+) -> None:
+    """Show what changed between two saved JSON reports (matched by finding_id)."""
+    try:
+        result = diff_reports(load_report(old_report), load_report(new_report))
+    except AuditorError as exc:
+        _fail(str(exc))
+    if fmt == "json":
+        typer.echo(json.dumps(result, indent=2))
+    elif fmt == "table":
+        for note in result["notes"]:
+            typer.secho(f"note: {note}", fg=typer.colors.YELLOW, err=True)
+        labels = {
+            "regressions": "NEW FAILURES",
+            "resolved": "RESOLVED",
+            "became_unknown": "BECAME UNKNOWN (not an improvement)",
+            "not_reported": "NO LONGER REPORTED (cannot confirm resolved)",
+        }
+        for key, label in labels.items():
+            typer.echo(f"{label}: {result['counts'][key]}")
+            for item in result[key]:
+                typer.echo(
+                    f"  {item['control_id']:8} {item['severity']:8} {item['region']:12} "
+                    f"{item['resource_id']}"
+                )
+        typer.echo(f"unchanged: {result['counts']['unchanged']}")
+    else:
+        _fail("--format must be 'table' or 'json'")
+    if fail_on_regression and result["counts"]["regressions"]:
+        raise typer.Exit(EXIT_FINDINGS)
 
 
 # ---------------------------------------------------------------- policy / org

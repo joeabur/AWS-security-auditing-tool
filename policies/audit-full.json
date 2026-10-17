@@ -68,6 +68,7 @@
         "iam:GetAccountSummary",
         "iam:GetCredentialReport",
         "iam:GetPolicyVersion",
+        "iam:ListEntitiesForPolicy",
         "iam:ListPolicies"
       ],
       "Resource": "*"
@@ -94,6 +95,7 @@
       "Effect": "Allow",
       "Action": [
         "s3:GetAccountPublicAccessBlock",
+        "s3:GetBucketAcl",
         "s3:GetBucketLocation",
         "s3:GetBucketLogging",
         "s3:GetBucketPolicy",

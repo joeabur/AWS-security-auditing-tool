@@ -43,6 +43,9 @@ Notes on specific actions:
 
 | Control | IAM actions used |
 |---|---|
+| COV-001 | `ec2:DescribeRegions` |
+| EBS-001 | `ec2:GetEbsEncryptionByDefault` |
+| EBS-002 | `ec2:DescribeVolumes` |
 | IAM-001 | `iam:GetAccountSummary` |
 | IAM-002 | `iam:GetAccountSummary` |
 | IAM-003 | `iam:GenerateCredentialReport`, `iam:GetCredentialReport` |
@@ -52,11 +55,12 @@ Notes on specific actions:
 | IAM-007 | `iam:GetAccountPasswordPolicy` |
 | IAM-008 | `access-analyzer:ListAnalyzers` |
 | IAM-009 | `iam:GetPolicyVersion`, `iam:ListPolicies` |
+| IAM-010 | `iam:ListEntitiesForPolicy` |
 | LOG-001 | `cloudtrail:DescribeTrails`, `cloudtrail:GetTrailStatus` |
 | LOG-002 | `cloudtrail:DescribeTrails` |
 | LOG-003 | `cloudtrail:DescribeTrails`, `cloudtrail:GetTrailStatus` |
 | LOG-004 | `cloudtrail:DescribeTrails`, `cloudtrail:GetTrailStatus` |
-| LOG-005 | `cloudtrail:DescribeTrails`, `s3:GetAccountPublicAccessBlock`, `s3:GetBucketLocation`, `s3:GetBucketPolicyStatus`, `s3:GetBucketPublicAccessBlock` |
+| LOG-005 | `cloudtrail:DescribeTrails`, `s3:GetAccountPublicAccessBlock`, `s3:GetBucketAcl`, `s3:GetBucketLocation`, `s3:GetBucketPolicyStatus`, `s3:GetBucketPublicAccessBlock` |
 | LOG-006 | `cloudtrail:DescribeTrails`, `s3:GetBucketLocation`, `s3:GetBucketLogging` |
 | LOG-007 | `logs:DescribeLogGroups` |
 | LOG-008 | `cloudtrail:DescribeTrails`, `cloudwatch:DescribeAlarmsForMetric`, `logs:DescribeMetricFilters` |
@@ -70,17 +74,15 @@ Notes on specific actions:
 | NET-004 | `ec2:DescribeSecurityGroups` |
 | NET-005 | `ec2:DescribeSnapshots` |
 | NET-006 | `ec2:DescribeImages` |
+| RDS-001 | `rds:DescribeDBInstances` |
+| RDS-002 | `rds:DescribeDBInstances` |
 | STO-001 | `s3:GetAccountPublicAccessBlock` |
 | STO-002 | `s3:GetAccountPublicAccessBlock`, `s3:GetBucketLocation`, `s3:GetBucketPublicAccessBlock`, `s3:ListAllMyBuckets` |
 | STO-003 | `s3:GetBucketLocation`, `s3:GetBucketPolicyStatus`, `s3:ListAllMyBuckets` |
 | STO-004 | `s3:GetBucketLocation`, `s3:GetEncryptionConfiguration`, `s3:ListAllMyBuckets` |
 | STO-005 | `s3:GetBucketLocation`, `s3:GetBucketLogging`, `s3:ListAllMyBuckets` |
 | STO-006 | `s3:GetBucketLocation`, `s3:GetBucketPolicy`, `s3:ListAllMyBuckets` |
-| EBS-001 | `ec2:GetEbsEncryptionByDefault` |
-| EBS-002 | `ec2:DescribeVolumes` |
-| RDS-001 | `rds:DescribeDBInstances` |
-| RDS-002 | `rds:DescribeDBInstances` |
-| COV-001 | `ec2:DescribeRegions` |
+| STO-007 | `s3:GetBucketAcl`, `s3:GetBucketLocation`, `s3:ListAllMyBuckets` |
 
 ## Recommended role setup
 

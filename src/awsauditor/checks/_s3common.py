@@ -105,3 +105,22 @@ def assess_pab(ctx: CheckContext, bucket: str, region: str) -> PabAssessment:
         k: bool((bucket_level or {}).get(k)) or bool((account_level or {}).get(k)) for k in PAB_KEYS
     }
     return PabAssessment(effective, bucket_level, account_level)
+
+
+PUBLIC_GROUP_URIS = {
+    "http://acs.amazonaws.com/groups/global/AllUsers": "AllUsers",
+    "http://acs.amazonaws.com/groups/global/AuthenticatedUsers": "AuthenticatedUsers",
+}
+
+
+def public_acl_grants(ctx: CheckContext, bucket: str, region: str) -> list[dict[str, str]]:
+    """ACL grants to the AllUsers / AuthenticatedUsers groups (empty list if none)."""
+    resp = ctx.client("s3", region).get_bucket_acl(Bucket=bucket)
+    out: list[dict[str, str]] = []
+    for grant in require(resp, "Grants", list):
+        uri = (grant.get("Grantee") or {}).get("URI")
+        if uri in PUBLIC_GROUP_URIS:
+            out.append(
+                {"group": PUBLIC_GROUP_URIS[uri], "permission": str(grant.get("Permission"))}
+            )
+    return out

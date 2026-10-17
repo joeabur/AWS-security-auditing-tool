@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
-  "catalog_version": "2026.10.0",
+  "catalog_version": "2026.10.1",
   "disclaimer": "Controls are inspired by the CIS AWS Foundations Benchmark and AWS security best practices. This catalog is not a CIS-certified implementation and does not cover the full benchmark.",
   "controls": [
+    {
+      "id": "COV-001",
+      "title": "All enabled regions in the account were audited",
+      "service": "ec2",
+      "severity": "low",
+      "scope": "account",
+      "benchmark_theme": "Coverage",
+      "rationale": "Resources in regions that were not audited are unassessed; attackers favour unmonitored regions.",
+      "evidence_requirements": [
+        "ec2:DescribeRegions enabled regions compared with audited regions"
+      ],
+      "remediation": "Re-run the audit with --regions all, or document why specific regions are out of scope.",
+      "references": [
+        "https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeRegions"
+      ]
+    },
+    {
+      "id": "EBS-001",
+      "title": "EBS encryption by default is enabled in the region",
+      "service": "ec2",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption at rest",
+      "rationale": "Default encryption ensures new volumes and snapshot copies are encrypted without per-volume action.",
+      "evidence_requirements": [
+        "ec2:GetEbsEncryptionByDefault"
+      ],
+      "remediation": "Enable EBS encryption by default in each in-use region.",
+      "references": [
+        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:GetEbsEncryptionByDefault"
+      ]
+    },
+    {
+      "id": "EBS-002",
+      "title": "EBS volumes are encrypted",
+      "service": "ec2",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption at rest",
+      "rationale": "The Encrypted attribute shows configured encryption; it does not verify key policy, grants or key rotation.",
+      "evidence_requirements": [
+        "ec2:DescribeVolumes Encrypted"
+      ],
+      "remediation": "Create an encrypted snapshot copy, restore it to a new encrypted volume and replace the unencrypted volume.",
+      "references": [
+        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "ec2:DescribeVolumes"
+      ]
+    },
     {
       "id": "IAM-001",
       "title": "Root account has MFA enabled",
@@ -192,6 +252,27 @@
       ]
     },
     {
+      "id": "IAM-010",
+      "title": "AdministratorAccess is not attached to IAM users or groups",
+      "service": "iam",
+      "severity": "high",
+      "scope": "account",
+      "benchmark_theme": "Identity and Access Management: least privilege",
+      "rationale": "Attaching the AWS-managed AdministratorAccess policy to users or groups grants unrestricted access to long-lived principals; roles with MFA/SSO are the safer pattern. Customer-managed admin policies are covered by IAM-006.",
+      "evidence_requirements": [
+        "iam:ListEntitiesForPolicy for arn:<partition>:iam::aws:policy/AdministratorAccess (users, groups, roles attached)"
+      ],
+      "remediation": "Detach AdministratorAccess from users and groups; grant administrative access through short-lived, MFA- or SSO-protected roles and scope permissions to what each job needs.",
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "iam:ListEntitiesForPolicy"
+      ]
+    },
+    {
       "id": "LOG-001",
       "title": "A multi-region CloudTrail trail is logging",
       "service": "cloudtrail",
@@ -288,7 +369,8 @@
       "evidence_requirements": [
         "s3:GetBucketPublicAccessBlock",
         "s3:GetBucketPolicyStatus",
-        "s3:GetAccountPublicAccessBlock"
+        "s3:GetAccountPublicAccessBlock",
+        "s3:GetBucketAcl grants to AllUsers / AuthenticatedUsers"
       ],
       "remediation": "Enable all four S3 Block Public Access settings on the bucket and remove public statements from its policy.",
       "references": [
@@ -299,6 +381,7 @@
       "permissions": [
         "cloudtrail:DescribeTrails",
         "s3:GetAccountPublicAccessBlock",
+        "s3:GetBucketAcl",
         "s3:GetBucketLocation",
         "s3:GetBucketPolicyStatus",
         "s3:GetBucketPublicAccessBlock"
@@ -587,6 +670,46 @@
       ]
     },
     {
+      "id": "RDS-001",
+      "title": "RDS DB instances are not publicly accessible",
+      "service": "rds",
+      "severity": "high",
+      "scope": "region",
+      "benchmark_theme": "Storage: database exposure",
+      "rationale": "PubliclyAccessible resolves the endpoint to a public IP; actual reachability also depends on security groups and routing, which this control does not evaluate.",
+      "evidence_requirements": [
+        "rds:DescribeDBInstances PubliclyAccessible"
+      ],
+      "remediation": "Modify the instance to disable public accessibility and place it in private subnets.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "rds:DescribeDBInstances"
+      ]
+    },
+    {
+      "id": "RDS-002",
+      "title": "RDS DB instances have storage encryption enabled",
+      "service": "rds",
+      "severity": "medium",
+      "scope": "region",
+      "benchmark_theme": "Storage: encryption at rest",
+      "rationale": "StorageEncrypted shows configured encryption; it does not verify key policy or grants.",
+      "evidence_requirements": [
+        "rds:DescribeDBInstances StorageEncrypted"
+      ],
+      "remediation": "Restore an encrypted copy from a snapshot and cut over; encryption cannot be enabled in place.",
+      "references": [
+        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html",
+        "https://www.cisecurity.org/benchmark/amazon_web_services"
+      ],
+      "permissions": [
+        "rds:DescribeDBInstances"
+      ]
+    },
+    {
       "id": "STO-001",
       "title": "S3 account-level Block Public Access is fully enabled",
       "service": "s3",
@@ -719,103 +842,26 @@
       ]
     },
     {
-      "id": "EBS-001",
-      "title": "EBS encryption by default is enabled in the region",
-      "service": "ec2",
-      "severity": "medium",
-      "scope": "region",
-      "benchmark_theme": "Storage: encryption at rest",
-      "rationale": "Default encryption ensures new volumes and snapshot copies are encrypted without per-volume action.",
-      "evidence_requirements": [
-        "ec2:GetEbsEncryptionByDefault"
-      ],
-      "remediation": "Enable EBS encryption by default in each in-use region.",
-      "references": [
-        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html",
-        "https://www.cisecurity.org/benchmark/amazon_web_services"
-      ],
-      "permissions": [
-        "ec2:GetEbsEncryptionByDefault"
-      ]
-    },
-    {
-      "id": "EBS-002",
-      "title": "EBS volumes are encrypted",
-      "service": "ec2",
-      "severity": "medium",
-      "scope": "region",
-      "benchmark_theme": "Storage: encryption at rest",
-      "rationale": "The Encrypted attribute shows configured encryption; it does not verify key policy, grants or key rotation.",
-      "evidence_requirements": [
-        "ec2:DescribeVolumes Encrypted"
-      ],
-      "remediation": "Create an encrypted snapshot copy, restore it to a new encrypted volume and replace the unencrypted volume.",
-      "references": [
-        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html",
-        "https://www.cisecurity.org/benchmark/amazon_web_services"
-      ],
-      "permissions": [
-        "ec2:DescribeVolumes"
-      ]
-    },
-    {
-      "id": "RDS-001",
-      "title": "RDS DB instances are not publicly accessible",
-      "service": "rds",
+      "id": "STO-007",
+      "title": "S3 bucket ACL does not grant access to everyone",
+      "service": "s3",
       "severity": "high",
       "scope": "region",
-      "benchmark_theme": "Storage: database exposure",
-      "rationale": "PubliclyAccessible resolves the endpoint to a public IP; actual reachability also depends on security groups and routing, which this control does not evaluate.",
+      "benchmark_theme": "Storage: S3 public access",
+      "rationale": "ACL grants to the AllUsers or AuthenticatedUsers groups expose bucket contents to the internet or to any AWS account, independent of bucket policy.",
       "evidence_requirements": [
-        "rds:DescribeDBInstances PubliclyAccessible"
+        "s3:GetBucketAcl grants whose grantee URI is the AllUsers or AuthenticatedUsers group"
       ],
-      "remediation": "Modify the instance to disable public accessibility and place it in private subnets.",
+      "remediation": "Remove the group grants from the bucket ACL, enable Object Ownership 'Bucket owner enforced' to disable ACLs, and enable Block Public Access.",
       "references": [
-        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html",
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html",
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/about-object-ownership.html",
         "https://www.cisecurity.org/benchmark/amazon_web_services"
       ],
       "permissions": [
-        "rds:DescribeDBInstances"
-      ]
-    },
-    {
-      "id": "RDS-002",
-      "title": "RDS DB instances have storage encryption enabled",
-      "service": "rds",
-      "severity": "medium",
-      "scope": "region",
-      "benchmark_theme": "Storage: encryption at rest",
-      "rationale": "StorageEncrypted shows configured encryption; it does not verify key policy or grants.",
-      "evidence_requirements": [
-        "rds:DescribeDBInstances StorageEncrypted"
-      ],
-      "remediation": "Restore an encrypted copy from a snapshot and cut over; encryption cannot be enabled in place.",
-      "references": [
-        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html",
-        "https://www.cisecurity.org/benchmark/amazon_web_services"
-      ],
-      "permissions": [
-        "rds:DescribeDBInstances"
-      ]
-    },
-    {
-      "id": "COV-001",
-      "title": "All enabled regions in the account were audited",
-      "service": "ec2",
-      "severity": "low",
-      "scope": "account",
-      "benchmark_theme": "Coverage",
-      "rationale": "Resources in regions that were not audited are unassessed; attackers favour unmonitored regions.",
-      "evidence_requirements": [
-        "ec2:DescribeRegions enabled regions compared with audited regions"
-      ],
-      "remediation": "Re-run the audit with --regions all, or document why specific regions are out of scope.",
-      "references": [
-        "https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html",
-        "https://www.cisecurity.org/benchmark/amazon_web_services"
-      ],
-      "permissions": [
-        "ec2:DescribeRegions"
+        "s3:GetBucketAcl",
+        "s3:GetBucketLocation",
+        "s3:ListAllMyBuckets"
       ]
     }
   ]

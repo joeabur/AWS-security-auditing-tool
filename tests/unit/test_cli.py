@@ -66,7 +66,7 @@ def test_controls_list_and_show() -> None:
     out = runner.invoke(app, ["controls", "list", "--service", "s3"])
     assert out.exit_code == 0 and "STO-001" in out.stdout and "IAM-001" not in out.stdout
     data = json.loads(runner.invoke(app, ["controls", "list", "--format", "json"]).stdout)
-    assert len(data) == 38 and {"id", "severity", "remediation", "references"} <= data[0].keys()
+    assert len(data) == 40 and {"id", "severity", "remediation", "references"} <= data[0].keys()
     shown = runner.invoke(app, ["controls", "show", "iam-001"])
     assert shown.exit_code == 0 and json.loads(shown.stdout)["id"] == "IAM-001"
     assert runner.invoke(app, ["controls", "show", "NOPE-1"]).exit_code == 2

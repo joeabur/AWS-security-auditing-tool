@@ -397,3 +397,40 @@ def test_policy_generate_and_org_error_paths(
     h.err("organizations", "describe_organization", "AWSOrganizationsNotInUseException", 400)
     res = runner.invoke(app, ["org", "list-accounts", "-c", str(cfg)])
     assert res.exit_code == 2 and "Organizations discovery failed" in res.output
+
+
+def test_workers_option_overrides_config(monkeypatch: pytest.MonkeyPatch, cfg: Path,
+                                         tmp_path: Path) -> None:  # fmt: skip
+    seen: list[int] = []
+    real = cli.run_audit
+
+    def spy(_f: Any, _i: Any, config: Any, *a: Any, **k: Any) -> Any:
+        seen.append(config.audit.workers)
+        return real(_f, _i, config, *a, **k)
+
+    monkeypatch.setattr(cli, "run_audit", spy)
+    h = wire(monkeypatch)
+    h.ok(
+        "iam",
+        "get_account_summary",
+        {"SummaryMap": {"AccountMFAEnabled": 1, "AccountAccessKeysPresent": 0}},
+    )
+    res = runner.invoke(
+        app,
+        [
+            "audit",
+            "run",
+            "-c",
+            str(cfg),
+            "--output-dir",
+            str(tmp_path / "o"),
+            "--formats",
+            "json",
+            "--workers",
+            "3",
+            "--confirm-account",
+            ACCOUNT,
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert seen == [3]

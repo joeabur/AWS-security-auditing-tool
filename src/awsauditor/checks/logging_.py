@@ -284,6 +284,7 @@ def _bucket_exposure(
         "s3:GetBucketPublicAccessBlock",
         "s3:GetAccountPublicAccessBlock",
         "s3:GetBucketPolicyStatus",
+        "s3:GetBucketAcl",
     ]
     pab = s3c.assess_pab(ctx, bucket, region)
     evidence: dict[str, Any] = {"bucket": bucket, "effective_block_public_access": pab.effective}
@@ -307,22 +308,19 @@ def _bucket_exposure(
     evidence["policy_is_public"] = public
     if public:
         return ctx.finding(
-            control_id,
-            Status.FAIL,
-            res,
-            S3,
-            "Bucket policy makes the bucket public.",
-            evidence=evidence,
-            sources=src,
-        )
+            control_id, Status.FAIL, res, S3, "Bucket policy makes the bucket public.",
+            evidence=evidence, sources=src,
+        )  # fmt: skip
+    grants = s3c.public_acl_grants(ctx, bucket, region)
+    evidence["public_acl_grants"] = grants
+    if grants:
+        return ctx.finding(
+            control_id, Status.FAIL, res, S3, "Bucket ACL grants access to everyone.",
+            evidence=evidence, sources=src,
+        )  # fmt: skip
     return ctx.finding(
-        control_id,
-        Status.NOT_ASSESSED,
-        res,
-        S3,
-        "Policy is not public, but Block Public Access is incomplete and bucket ACLs were not "
-        "evaluated.",
-        evidence=evidence,
-        sources=src,
-        uncertainty=[note],
-    )
+        control_id, Status.PASS, res, S3,
+        "Bucket is not public through its policy or ACL (Block Public Access is incomplete).",
+        evidence=evidence, sources=src,
+        uncertainty=["S3 access points are not evaluated.", note],
+    )  # fmt: skip

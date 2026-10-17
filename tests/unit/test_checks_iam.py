@@ -412,3 +412,58 @@ def test_access_analyzer_pagination_and_unsupported_region(h: Harness) -> None:
     h.err("accessanalyzer", "list_analyzers", "UnrecognizedClientException", 403)
     f = iam.access_analyzer(h.ctx())
     assert statuses(f) == ["NOT_ASSESSED"]
+
+
+# ------------------------------------------------------------- IAM-010
+
+ADMIN_ARN = "arn:aws:iam::aws:policy/AdministratorAccess"
+
+
+def entities(users: list[str] = (), groups: list[str] = (), roles: list[str] = ()) -> dict:  # type: ignore[type-arg,assignment]
+    return {
+        "PolicyUsers": [{"UserName": u, "UserId": ("AIDA" + u).ljust(16, "X")} for u in users],
+        "PolicyGroups": [{"GroupName": g, "GroupId": ("AGPA" + g).ljust(16, "X")} for g in groups],
+        "PolicyRoles": [{"RoleName": r, "RoleId": ("AROA" + r).ljust(16, "X")} for r in roles],
+    }
+
+
+@pytest.mark.parametrize(
+    ("kw", "expected"),
+    [
+        ({}, "PASS"),
+        ({"roles": ["sso-admin", "breakglass"]}, "PASS"),  # roles are counted, not flagged
+        ({"users": ["alice"]}, "FAIL"),
+        ({"groups": ["admins"]}, "FAIL"),
+        ({"users": ["alice"], "groups": ["admins"], "roles": ["r"]}, "FAIL"),
+    ],
+)
+def test_iam010_admin_access(h: Harness, kw: dict, expected: str) -> None:  # type: ignore[type-arg]
+    h.ok("iam", "list_entities_for_policy", entities(**kw), {"PolicyArn": ADMIN_ARN})
+    f = iam.administrator_access(h.ctx(account_scope=True))
+    assert statuses(f) == [expected] and f[0].resource_id == ADMIN_ARN
+    assert f[0].evidence["role_count"] == len(kw.get("roles", []))
+    assert f[0].uncertainty
+    h.assert_all_consumed()
+
+
+def test_iam010_pagination_and_evidence_cap(h: Harness) -> None:
+    first = {**entities(users=[f"u{i:02d}" for i in range(20)]), "IsTruncated": True, "Marker": "m"}
+    h.ok("iam", "list_entities_for_policy", first)
+    h.ok("iam", "list_entities_for_policy", entities(users=[f"v{i:02d}" for i in range(20)]))
+    f = iam.administrator_access(h.ctx(account_scope=True))
+    assert f[0].evidence["user_count"] == 40 and len(f[0].evidence["users"]) == 25
+
+
+def test_iam010_uses_the_partition_in_the_arn(h: Harness) -> None:
+    ctx = h.ctx(account_scope=True)
+    ctx.partition = "aws-us-gov"
+    h.ok("iam", "list_entities_for_policy", entities(),
+         {"PolicyArn": "arn:aws-us-gov:iam::aws:policy/AdministratorAccess"})  # fmt: skip
+    assert statuses(iam.administrator_access(ctx)) == ["PASS"]
+
+
+def test_iam010_denied_and_malformed(h: Harness) -> None:
+    h.err("iam", "list_entities_for_policy")
+    assert statuses(iam.administrator_access(h.ctx(account_scope=True))) == ["ERROR"]
+    h.factory.fault = {"status": 200, "parsed": {"PolicyUsers": [{"UserId": "x"}]}}
+    assert statuses(iam.administrator_access(h.ctx(account_scope=True))) == ["ERROR"]

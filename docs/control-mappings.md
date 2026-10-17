@@ -1,6 +1,6 @@
 # Control mappings
 
-Catalog version: `2026.10.0` (`controls/catalog.json`, schema version 1).
+Catalog version: `2026.10.1` (`controls/catalog.json`, schema version 1).
 
 ## What "CIS-inspired" means here
 
@@ -19,6 +19,9 @@ security best practices. This project:
 
 | ID | Severity | Scope | Title | Benchmark theme (CIS-inspired, not a section citation) |
 |---|---|---|---|---|
+| COV-001 | low | account | All enabled regions in the account were audited | Coverage |
+| EBS-001 | medium | region | EBS encryption by default is enabled in the region | Storage: encryption at rest |
+| EBS-002 | medium | region | EBS volumes are encrypted | Storage: encryption at rest |
 | IAM-001 | critical | account | Root account has MFA enabled | Identity and Access Management: root account protection |
 | IAM-002 | critical | account | Root account has no active access keys | Identity and Access Management: root account protection |
 | IAM-003 | high | account | IAM users with console access have MFA | Identity and Access Management: multi-factor authentication |
@@ -28,6 +31,7 @@ security best practices. This project:
 | IAM-007 | medium | account | IAM password policy meets the configured baseline | Identity and Access Management: password policy |
 | IAM-008 | low | region | IAM Access Analyzer is active in the region | Identity and Access Management: external access analysis |
 | IAM-009 | medium | account | No attached customer-managed policy uses broad service wildcards or Allow with NotAction | Identity and Access Management: least privilege |
+| IAM-010 | high | account | AdministratorAccess is not attached to IAM users or groups | Identity and Access Management: least privilege |
 | LOG-001 | high | account | A multi-region CloudTrail trail is logging | Logging and monitoring: CloudTrail |
 | LOG-002 | medium | region | CloudTrail log file validation is enabled | Logging and monitoring: CloudTrail |
 | LOG-003 | medium | region | CloudTrail is logging and delivering to S3 without errors | Logging and monitoring: CloudTrail |
@@ -46,21 +50,19 @@ security best practices. This project:
 | NET-004 | low | region | Security groups do not allow unrestricted egress on all protocols | Networking: security group exposure |
 | NET-005 | high | region | No EBS snapshots owned by the account are public | Networking: public resource exposure |
 | NET-006 | high | region | No AMIs owned by the account are public | Networking: public resource exposure |
+| RDS-001 | high | region | RDS DB instances are not publicly accessible | Storage: database exposure |
+| RDS-002 | medium | region | RDS DB instances have storage encryption enabled | Storage: encryption at rest |
 | STO-001 | medium | account | S3 account-level Block Public Access is fully enabled | Storage: S3 public access |
 | STO-002 | high | region | S3 bucket Block Public Access is effectively enabled | Storage: S3 public access |
 | STO-003 | high | region | S3 bucket policy does not make the bucket public | Storage: S3 public access |
 | STO-004 | medium | region | S3 bucket has default encryption configured | Storage: encryption at rest |
 | STO-005 | low | region | S3 bucket has server access logging enabled | Storage: S3 logging |
 | STO-006 | medium | region | S3 bucket policy denies non-TLS requests | Storage: encryption in transit |
-| EBS-001 | medium | region | EBS encryption by default is enabled in the region | Storage: encryption at rest |
-| EBS-002 | medium | region | EBS volumes are encrypted | Storage: encryption at rest |
-| RDS-001 | high | region | RDS DB instances are not publicly accessible | Storage: database exposure |
-| RDS-002 | medium | region | RDS DB instances have storage encryption enabled | Storage: encryption at rest |
-| COV-001 | low | account | All enabled regions in the account were audited | Coverage |
+| STO-007 | high | region | S3 bucket ACL does not grant access to everyone | Storage: S3 public access |
 
 ## Benchmark themes not covered
 
 Not implemented (see `docs/limitations.md`): management-event selector verification, KMS key
 rotation, VPC flow logs, network ACL rules, route-table peering review, S3 object-level
-(data-event) logging, Security Hub/Inspector, support-role checks, IAM inline-policy and
-AWS-managed-policy analysis, SAML/OIDC provider review, and many service-specific controls.
+(data-event) logging, Security Hub/Inspector, support-role checks, IAM inline-policy analysis and AWS-managed
+policies other than AdministratorAccess, SAML/OIDC provider review, and many service-specific controls.
