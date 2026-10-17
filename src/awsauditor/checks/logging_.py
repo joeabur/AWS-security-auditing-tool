@@ -121,6 +121,71 @@ def multi_region_trail(ctx: CheckContext) -> list[Finding]:
     return out
 
 
+def captures_all_management_events(selectors: dict[str, Any]) -> bool:
+    """True if the trail's selectors record read and write management events without filters."""
+    for basic in selectors.get("EventSelectors") or []:
+        if (
+            basic.get("IncludeManagementEvents") is True
+            and basic.get("ReadWriteType") == "All"
+            and not basic.get("ExcludeManagementEventSources")
+        ):
+            return True
+    for adv in selectors.get("AdvancedEventSelectors") or []:
+        fields = {fs.get("Field"): fs for fs in adv.get("FieldSelectors") or []}
+        category = fields.get("eventCategory")
+        if (
+            category
+            and "Management" in (category.get("Equals") or [])
+            and set(fields) == {"eventCategory"}
+        ):
+            return True
+    return False
+
+
+@check("LOG-013")
+def management_events(ctx: CheckContext) -> list[Finding]:
+    src = [*_TS, "cloudtrail:GetEventSelectors"]
+    resource = f"account/{ctx.account_id}"
+    out: list[Finding] = []
+    with ctx.capture(out, "LOG-013", resource, ACCT, src):
+        trails = require(
+            ctx.client("cloudtrail").describe_trails(includeShadowTrails=True), "trailList", list
+        )
+        first_error: Exception | None = None
+        covering: list[str] = []
+        evaluated: list[str] = []
+        for t in (t for t in trails if t.get("IsMultiRegionTrail") is True):
+            try:
+                if trail_status(ctx, t).get("IsLogging") is not True:
+                    continue
+                home = optional(t, "HomeRegion", str) or ctx.client_region
+                arn = require(t, "TrailARN", str)
+                sel = ctx.factory.client("cloudtrail", home).get_event_selectors(TrailName=arn)
+                evaluated.append(str(t["Name"]))
+                if captures_all_management_events(sel):
+                    covering.append(str(t["Name"]))
+            except Exception as exc:
+                first_error = first_error or exc
+        evidence = {"logging_multi_region_trails": evaluated, "capturing_all_management": covering}
+        if covering:
+            out.append(ctx.finding("LOG-013", Status.PASS, resource, ACCT,
+                                   "A multi-region trail records all management events.",
+                                   evidence=evidence, sources=src,
+                                   uncertainty=["Advanced selectors are accepted only in the plain "
+                                                "'all Management events' form."]))  # fmt: skip
+        elif first_error is not None:
+            raise first_error
+        else:
+            out.append(ctx.finding(
+                "LOG-013", Status.FAIL, resource, ACCT,
+                "No logging multi-region trail records all read and write management events.",
+                evidence=evidence, sources=src,
+                uncertainty=["Selectors using extra filters are treated as not capturing all "
+                             "events; organization trails from another account are not visible."],
+            ))  # fmt: skip
+    return out
+
+
 @check("LOG-002")
 def log_file_validation(ctx: CheckContext) -> list[Finding]:
     def evaluate(trail: dict[str, Any], arn: str) -> Finding:
@@ -284,6 +349,7 @@ def _bucket_exposure(
         "s3:GetBucketPublicAccessBlock",
         "s3:GetAccountPublicAccessBlock",
         "s3:GetBucketPolicyStatus",
+        "s3:GetBucketAcl",
     ]
     pab = s3c.assess_pab(ctx, bucket, region)
     evidence: dict[str, Any] = {"bucket": bucket, "effective_block_public_access": pab.effective}
@@ -307,22 +373,19 @@ def _bucket_exposure(
     evidence["policy_is_public"] = public
     if public:
         return ctx.finding(
-            control_id,
-            Status.FAIL,
-            res,
-            S3,
-            "Bucket policy makes the bucket public.",
-            evidence=evidence,
-            sources=src,
-        )
+            control_id, Status.FAIL, res, S3, "Bucket policy makes the bucket public.",
+            evidence=evidence, sources=src,
+        )  # fmt: skip
+    grants = s3c.public_acl_grants(ctx, bucket, region)
+    evidence["public_acl_grants"] = grants
+    if grants:
+        return ctx.finding(
+            control_id, Status.FAIL, res, S3, "Bucket ACL grants access to everyone.",
+            evidence=evidence, sources=src,
+        )  # fmt: skip
     return ctx.finding(
-        control_id,
-        Status.NOT_ASSESSED,
-        res,
-        S3,
-        "Policy is not public, but Block Public Access is incomplete and bucket ACLs were not "
-        "evaluated.",
-        evidence=evidence,
-        sources=src,
-        uncertainty=[note],
-    )
+        control_id, Status.PASS, res, S3,
+        "Bucket is not public through its policy or ACL (Block Public Access is incomplete).",
+        evidence=evidence, sources=src,
+        uncertainty=["S3 access points are not evaluated.", note],
+    )  # fmt: skip

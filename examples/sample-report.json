@@ -4,7 +4,7 @@
     "name": "aws-security-auditing-tool",
     "version": "0.1.0"
   },
-  "catalog_version": "2026.10.0",
+  "catalog_version": "2026.10.1",
   "generated_at": "2026-10-16T12:00:00Z",
   "started_at": "2026-10-16T12:00:00Z",
   "account_id": "********3333",
@@ -38,6 +38,8 @@
       "low": 0,
       "info": 0
     },
+    "active_failures": 6,
+    "suppressed_failures": 0,
     "controls_with_unknown_results": {
       "LOG-012": 1
     }
@@ -81,7 +83,8 @@
       "remediation": "Create an encrypted snapshot copy, restore it to a new encrypted volume and replace the unencrypted volume.",
       "uncertainty": [
         "Encrypted=true shows configured encryption only; KMS key policy, grants and key state are not verified."
-      ]
+      ],
+      "suppression": null
     },
     {
       "finding_id": "8d5cd91b0c5de304",
@@ -104,7 +107,8 @@
       ],
       "observed_at": "2026-10-16T12:00:00Z",
       "remediation": "Create an encrypted snapshot copy, restore it to a new encrypted volume and replace the unencrypted volume.",
-      "uncertainty": []
+      "uncertainty": [],
+      "suppression": null
     },
     {
       "finding_id": "60e29aa986851d58",
@@ -125,7 +129,8 @@
       ],
       "observed_at": "2026-10-16T12:00:00Z",
       "remediation": "Sign in as root, register a hardware or virtual MFA device under Security credentials, and store recovery material offline. Prefer a hardware or passkey MFA for root.",
-      "uncertainty": []
+      "uncertainty": [],
+      "suppression": null
     },
     {
       "finding_id": "0fc828ef4e43bc60",
@@ -146,7 +151,8 @@
       ],
       "observed_at": "2026-10-16T12:00:00Z",
       "remediation": "Sign in as root and delete the root access keys; use IAM roles or IAM Identity Center for programmatic access.",
-      "uncertainty": []
+      "uncertainty": [],
+      "suppression": null
     },
     {
       "finding_id": "7c87da9ba98eb289",
@@ -172,7 +178,8 @@
       "remediation": "Set a password policy with the configured minimum length (default 14) and reuse prevention (default 24), or eliminate IAM user passwords via federation.",
       "uncertainty": [
         "Only length and reuse prevention are evaluated."
-      ]
+      ],
+      "suppression": null
     },
     {
       "finding_id": "f38f1415d91cdd9e",
@@ -197,7 +204,8 @@
       "remediation": "Enable GuardDuty in every in-use region, ideally centrally managed through AWS Organizations.",
       "uncertainty": [
         "Delegated-administrator or suppressed findings are not evaluated."
-      ]
+      ],
+      "suppression": null
     },
     {
       "finding_id": "5aa5652e2085f3d8",
@@ -223,7 +231,8 @@
       "remediation": "Create a configuration recorder and delivery channel, start the recorder, and fix any delivery failures.",
       "uncertainty": [
         "Grant the missing read-only permission (see policies/) and re-run; the control result is unknown."
-      ]
+      ],
+      "suppression": null
     },
     {
       "finding_id": "e33288ff6215e688",
@@ -277,7 +286,8 @@
       "remediation": "Restrict sources to known CIDRs, security groups or a VPN; use SSM Session Manager instead of SSH or RDP.",
       "uncertainty": [
         "Only exact 0.0.0.0/0 and ::/0 are treated as public; broad CIDRs and attachment to a resource are not evaluated."
-      ]
+      ],
+      "suppression": null
     },
     {
       "finding_id": "11a0bfb3bfe18ac4",
@@ -319,7 +329,8 @@
       "remediation": "Restrict sources to known CIDRs, security groups or a VPN; use SSM Session Manager instead of SSH or RDP.",
       "uncertainty": [
         "Only exact 0.0.0.0/0 and ::/0 are treated as public; broad CIDRs and attachment to a resource are not evaluated."
-      ]
+      ],
+      "suppression": null
     },
     {
       "finding_id": "290d7fd22ae7eab8",
@@ -348,7 +359,8 @@
       ],
       "observed_at": "2026-10-16T12:00:00Z",
       "remediation": "Enable all four Block Public Access settings on the bucket or at account level.",
-      "uncertainty": []
+      "uncertainty": [],
+      "suppression": null
     },
     {
       "finding_id": "9374cc14b4fd1a65",
@@ -377,7 +389,8 @@
       ],
       "observed_at": "2026-10-16T12:00:00Z",
       "remediation": "Enable all four Block Public Access settings on the bucket or at account level.",
-      "uncertainty": []
+      "uncertainty": [],
+      "suppression": null
     }
   ]
 }

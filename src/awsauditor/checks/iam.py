@@ -551,3 +551,47 @@ def access_analyzer(ctx: CheckContext) -> list[Finding]:
             )
         )
     return out
+
+
+# ---------------------------------------------------------------- AdministratorAccess
+
+
+@check("IAM-010")
+def administrator_access(ctx: CheckContext) -> list[Finding]:
+    src = ["iam:ListEntitiesForPolicy"]
+    arn = f"arn:{ctx.partition}:iam::aws:policy/AdministratorAccess"
+    out: list[Finding] = []
+    with ctx.capture(out, "IAM-010", arn, POLICY, src):
+        users: list[str] = []
+        groups: list[str] = []
+        roles = 0
+        pages = ctx.client("iam").get_paginator("list_entities_for_policy").paginate(PolicyArn=arn)
+        for page in pages:
+            users += [require(u, "UserName", str) for u in page.get("PolicyUsers", [])]
+            groups += [require(g, "GroupName", str) for g in page.get("PolicyGroups", [])]
+            roles += len(page.get("PolicyRoles", []))
+        bad = bool(users or groups)
+        out.append(
+            ctx.finding(
+                "IAM-010",
+                Status.FAIL if bad else Status.PASS,
+                arn,
+                POLICY,
+                "AdministratorAccess is attached to IAM users or groups."
+                if bad
+                else "AdministratorAccess is not attached to any IAM user or group.",
+                evidence={
+                    "users": sorted(users)[:25],
+                    "groups": sorted(groups)[:25],
+                    "user_count": len(users),
+                    "group_count": len(groups),
+                    "role_count": roles,
+                },
+                sources=src,
+                uncertainty=[
+                    "Roles are counted but not flagged. Equivalent custom admin policies are "
+                    "covered by IAM-006 (attached customer-managed policies only)."
+                ],
+            )
+        )
+    return out

@@ -216,8 +216,19 @@ def test_log005_public_policy_fails(h: Harness) -> None:
     assert statuses(f) == ["FAIL"] and f[0].evidence["policy_is_public"] is True
 
 
-@pytest.mark.parametrize("policy_resp", ["status", "nopolicy"])
-def test_log005_unverifiable_acls_is_not_assessed(h: Harness, policy_resp: str) -> None:
+ALL_USERS = "http://acs.amazonaws.com/groups/global/AllUsers"
+AUTH_USERS = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+
+
+def acl(*group_uris: str) -> dict[str, Any]:
+    grants = [{"Grantee": {"Type": "Group", "URI": u}, "Permission": "READ"} for u in group_uris]
+    grants.append(
+        {"Grantee": {"Type": "CanonicalUser", "ID": "owner"}, "Permission": "FULL_CONTROL"}
+    )
+    return {"Owner": {"ID": "owner"}, "Grants": grants}
+
+
+def stub_unblocked(h: Harness, policy_resp: str) -> None:
     stub_trail_and_location(h)
     h.err("s3", "get_public_access_block", PAB_NONE, 404)
     h.err("s3control", "get_public_access_block", PAB_NONE, 404)
@@ -225,8 +236,31 @@ def test_log005_unverifiable_acls_is_not_assessed(h: Harness, policy_resp: str) 
         h.ok("s3", "get_bucket_policy_status", {"PolicyStatus": {"IsPublic": False}})
     else:
         h.err("s3", "get_bucket_policy_status", "NoSuchBucketPolicy", 404)
+
+
+@pytest.mark.parametrize("policy_resp", ["status", "nopolicy"])
+def test_log005_private_policy_and_acl_pass_with_access_point_caveat(
+    h: Harness, policy_resp: str
+) -> None:
+    stub_unblocked(h, policy_resp)
+    h.ok("s3", "get_bucket_acl", acl())
     f = run_bucket(h, ["LOG-005"])
-    assert statuses(f) == ["NOT_ASSESSED"] and "ACLs" in f[0].message
+    assert statuses(f) == ["PASS"]
+    assert "access points" in f[0].uncertainty[0] and f[0].evidence["public_acl_grants"] == []
+
+
+@pytest.mark.parametrize("uri", [ALL_USERS, AUTH_USERS])
+def test_log005_public_acl_fails(h: Harness, uri: str) -> None:
+    stub_unblocked(h, "status")
+    h.ok("s3", "get_bucket_acl", acl(uri))
+    f = run_bucket(h, ["LOG-005"])
+    assert statuses(f) == ["FAIL"] and f[0].evidence["public_acl_grants"][0]["permission"] == "READ"
+
+
+def test_log005_acl_unreadable_is_error(h: Harness) -> None:
+    stub_unblocked(h, "status")
+    h.err("s3", "get_bucket_acl", "AccessDenied", 403)
+    assert statuses(run_bucket(h, ["LOG-005"])) == ["ERROR"]
 
 
 def test_log005_account_level_unreadable_is_error_not_pass(h: Harness) -> None:

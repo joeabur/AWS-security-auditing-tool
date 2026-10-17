@@ -1,7 +1,7 @@
 # AWS Security Auditing Tool
 
 A **read-only** command-line auditor that evaluates an AWS account against a versioned catalog of
-38 documented security controls and produces evidence-backed findings (JSON, CSV, HTML) with
+41 documented security controls and produces evidence-backed findings (JSON, CSV, HTML) with
 remediation guidance.
 
 - **Never changes your account.** Only `Get*`, `List*`, `Describe*` and
@@ -56,12 +56,28 @@ non-interactive runs (CI) must pass it. A mismatch aborts before any audit API c
 | `audit plan` | Resolve account, regions and controls; audit nothing |
 | `audit run` | Run the audit and write reports (files `0600`, no overwrite without `--force`) |
 | `findings filter report.json --status FAIL,ERROR --min-severity high --control IAM-003 --region us-east-1` | Query a saved report |
-| `report export report.json --format html --output out.html [--redact --ip-addresses]` | Convert/redact a saved report |
+| `report diff old.json new.json [--fail-on-regression]` | New failures, resolved findings and results that became unknown between two runs |
+| `report export report.json --format html|sarif|csv --output out [--redact --ip-addresses]` | Convert/redact a saved report |
+| `report verify audit-….sha256` | Check report files against their SHA-256 manifest (tamper evidence) |
 | `policy generate --audit-profile baseline` | Print the least-privilege IAM policy for a profile |
 | `org list-accounts` | Optional: list Organization accounts (separate permissions) |
 
 Exit codes: `0` ok · `1` a FAIL at/above `--fail-on` · `2` usage/config/auth error ·
 `3` with `--strict`, some results were unknown (ERROR/NOT_ASSESSED).
+
+### Suppressions, SARIF and report integrity
+
+- **Suppressions** (`[[suppressions]]` in the config) record an explicit, expiring acceptance of a
+  `FAIL` (control, resource/region globs, reason, owner, mandatory expiry). The finding stays `FAIL`
+  and visible with its justification; it only stops counting toward `--fail-on` and the
+  `active_failures` total. Expired suppressions are ignored (the finding is active again) and warned
+  about, as are entries that match nothing.
+- **SARIF 2.1.0** (`--formats sarif`) carries `FAIL` findings and unknown results (`kind: review`)
+  with logical (resource) locations and stable fingerprints for security tooling.
+- **Manifest:** every `audit run` writes `audit-<stamp>.sha256`; `awsauditor report verify` checks it.
+  This detects accidental or naive tampering, not an attacker who can rewrite both files (signing is
+  on the roadmap).
+- **Diffing:** `awsauditor report diff old.json new.json --fail-on-regression` for CI gates.
 
 ### Configuration
 
@@ -71,10 +87,10 @@ See [examples/config.sample.toml](examples/config.sample.toml). Profiles: built-
 sensitive ports) are configurable. External IDs for role assumption are read only from
 `AWSAUDITOR_EXTERNAL_ID`.
 
-## Controls (38)
+## Controls (41)
 
-Identity & access (IAM-001..009), logging & monitoring (LOG-001..012), network exposure
-(NET-001..006), storage & encryption (STO-001..006, EBS-001..002, RDS-001..002) and region
+Identity & access (IAM-001..010), logging & monitoring (LOG-001..013), network exposure
+(NET-001..006), storage & encryption (STO-001..007, EBS-001..002, RDS-001..002) and region
 coverage (COV-001). Full list with severities: [docs/control-mappings.md](docs/control-mappings.md);
 machine-readable: [controls/catalog.json](controls/catalog.json).
 

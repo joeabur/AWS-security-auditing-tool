@@ -598,3 +598,47 @@ def test_cov001(h: Harness) -> None:
     assert statuses(coverage.region_coverage(full)) == ["PASS"]
     unknown = h.ctx(account_scope=True, audited=["us-east-1"], enabled=[], discovery_ok=False)
     assert statuses(coverage.region_coverage(unknown)) == ["NOT_ASSESSED"]
+
+
+# ---------------------------------------------------------------- STO-007
+
+ALL_USERS = "http://acs.amazonaws.com/groups/global/AllUsers"
+AUTH_USERS = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+LOG_DELIVERY = "http://acs.amazonaws.com/groups/s3/LogDelivery"
+
+
+def bucket_acl_resp(*uris: str) -> dict[str, Any]:
+    grants = [{"Grantee": {"Type": "Group", "URI": u}, "Permission": "READ"} for u in uris]
+    grants.append({"Grantee": {"Type": "CanonicalUser", "ID": "o"}, "Permission": "FULL_CONTROL"})
+    return {"Owner": {"ID": "o"}, "Grants": grants}
+
+
+@pytest.mark.parametrize(
+    ("uris", "expected"),
+    [
+        ((), "PASS"),
+        ((LOG_DELIVERY,), "PASS"),  # log delivery group is not public
+        ((ALL_USERS,), "FAIL"),
+        ((AUTH_USERS,), "FAIL"),
+        ((LOG_DELIVERY, ALL_USERS), "FAIL"),
+    ],
+)
+def test_sto007_acl_grants(h: Harness, uris: tuple[str, ...], expected: str) -> None:
+    stub_buckets(h, ["b"], {"b": "us-east-1"})
+    h.ok("s3", "get_bucket_acl", bucket_acl_resp(*uris))
+    f = s3.bucket_acl(h.ctx())
+    assert statuses(f) == [expected]
+    assert [g["group"] for g in f[0].evidence["public_grants"]] == [
+        "AllUsers" if u == ALL_USERS else "AuthenticatedUsers" for u in uris if "global" in u
+    ]
+
+
+def test_sto007_na_denied_and_malformed(h: Harness) -> None:
+    stub_buckets(h, ["a"], {"a": "eu-west-1"})
+    assert statuses(s3.bucket_acl(h.ctx())) == ["NOT_APPLICABLE"]
+    stub_buckets(h, ["b"], {"b": "us-east-1"})
+    h.err("s3", "get_bucket_acl", "AccessDenied", 403)
+    assert statuses(s3.bucket_acl(h.ctx())) == ["ERROR"]
+    stub_buckets(h, ["c"], {"c": "us-east-1"})
+    h.factory.op_faults = {"GetBucketAcl": {"status": 200, "parsed": {"Owner": {"ID": "o"}}}}
+    assert statuses(s3.bucket_acl(h.ctx())) == ["ERROR"]

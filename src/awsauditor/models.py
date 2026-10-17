@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -78,6 +78,16 @@ class Catalog(BaseModel):
         return self
 
 
+class SuppressionRef(BaseModel):
+    """Why an active FAIL finding is accepted. The finding keeps its FAIL status."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str
+    owner: str
+    expires: date
+
+
 class Finding(BaseModel):
     """A normalized, evidence-backed result for one control and one resource."""
 
@@ -98,6 +108,7 @@ class Finding(BaseModel):
     observed_at: datetime
     remediation: str
     uncertainty: list[str] = Field(default_factory=list)
+    suppression: SuppressionRef | None = None
 
     @model_validator(mode="after")
     def _stable_id(self) -> Finding:

@@ -265,3 +265,28 @@ def bucket_tls(ctx: CheckContext) -> list[Finding]:
         )
 
     return _per_bucket(ctx, "STO-006", src, evaluate)
+
+
+@check("STO-007")
+def bucket_acl(ctx: CheckContext) -> list[Finding]:
+    src = ["s3:GetBucketAcl"]
+
+    def evaluate(name: str, res: str) -> Finding:
+        grants = s3c.public_acl_grants(ctx, name, ctx.region)
+        return ctx.finding(
+            "STO-007",
+            Status.FAIL if grants else Status.PASS,
+            res,
+            S3,
+            "Bucket ACL grants access to everyone."
+            if grants
+            else "Bucket ACL grants nothing to AllUsers or AuthenticatedUsers.",
+            evidence={"bucket": name, "public_grants": grants},
+            sources=src,
+            uncertainty=[
+                "Block Public Access may still neutralize these grants; object ACLs and "
+                "access points are not evaluated."
+            ],
+        )
+
+    return _per_bucket(ctx, "STO-007", src, evaluate)

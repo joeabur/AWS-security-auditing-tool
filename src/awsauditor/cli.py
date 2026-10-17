@@ -13,7 +13,7 @@ import typer
 
 from . import __version__
 from .catalog import load_catalog, select_controls
-from .config import AuditConfig, load_config
+from .config import REPORT_FORMATS, AuditConfig, RedactionSettings, load_config
 from .errors import AccountMismatch, AuditorError, ConfigError
 from .models import Control, Severity, Status
 from .organizations import list_accounts
@@ -21,16 +21,18 @@ from .policy import build_policy
 from .redaction import Redactor
 from .regions import RegionPlan, plan_regions
 from .reporting import (
+    RENDERERS,
+    build_manifest,
     build_report,
+    diff_reports,
     filter_findings,
     load_report,
-    to_csv,
-    to_html,
-    to_json,
+    verify_manifest,
     write_report_file,
 )
 from .runner import run_audit
 from .session import ClientFactory, Identity, build_session, resolve_identity
+from .suppressions import apply_suppressions
 
 app = typer.Typer(help="Read-only AWS security auditing tool.", no_args_is_help=True)
 controls_app = typer.Typer(help="Inspect the control catalog.", no_args_is_help=True)
@@ -144,9 +146,16 @@ def config_validate(path: Annotated[Path, typer.Argument(help="Config file.")]) 
     try:
         cfg = load_config(path)
         name, controls = _selected(cfg, None)
+        known = {c.id for c in load_catalog().controls}
+        unknown = sorted({s.control_id for s in cfg.suppressions} - known)
+        if unknown:
+            raise ConfigError(f"suppressions reference unknown control id(s): {', '.join(unknown)}")
     except AuditorError as exc:
         _fail(str(exc))
-    typer.echo(f"OK: profile '{name}' selects {len(controls)} controls.")
+    typer.echo(
+        f"OK: profile '{name}' selects {len(controls)} controls; "
+        f"{len(cfg.suppressions)} suppression(s)."
+    )
 
 
 # ---------------------------------------------------------------- audit
@@ -222,6 +231,9 @@ def audit_run(
         Severity | None, typer.Option(help="Exit 1 if a FAIL at/above this severity exists.")
     ] = None,
     strict: Annotated[bool, typer.Option(help="Exit 3 if any control result is unknown.")] = False,
+    workers: Annotated[
+        int | None, typer.Option(min=1, max=16, help="Parallel API workers (default: config).")
+    ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ) -> None:
     """Run an audit after explicit account confirmation."""
@@ -230,6 +242,8 @@ def audit_run(
         cfg = load_config(config_path)
         if redact is not None:
             cfg.redaction.enabled = redact
+        if workers is not None:
+            cfg.audit.workers = workers
         name, controls, factory, identity, home, plan = _prepare(
             cfg, aws_profile, role_arn, regions, audit_profile
         )
@@ -249,23 +263,34 @@ def audit_run(
             home_region=home,
             profile_name=name,
         )
+        result.warnings += apply_suppressions(
+            result.findings, cfg.suppressions, result.started_at.date()
+        )
+        for w in result.warnings[len(plan.warnings) :]:
+            typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
         report = build_report(result)
         fmts = _csv_list(formats) or cfg.output.formats
-        bad = set(fmts) - {"json", "csv", "html"}
+        bad = set(fmts) - set(REPORT_FORMATS)
         if bad:
             raise ConfigError(f"unsupported formats: {sorted(bad)}")
         out = output_dir or cfg.output.directory
         stamp = result.started_at.strftime("%Y%m%dT%H%M%SZ")
         redactor = Redactor(cfg.redaction)
-        renderers = {"json": to_json, "csv": to_csv, "html": to_html}
+        written: dict[str, str] = {}
         for fmt in fmts:
             path = out / f"audit-{stamp}.{fmt}"
-            write_report_file(path, renderers[fmt](report, redactor), overwrite=force)
+            written[path.name] = RENDERERS[fmt](report, redactor)
+            write_report_file(path, written[path.name], overwrite=force)
             typer.echo(f"wrote {path}")
+        manifest = out / f"audit-{stamp}.sha256"
+        write_report_file(manifest, build_manifest(written), overwrite=force)
+        typer.echo(f"wrote {manifest} (verify with: awsauditor report verify {manifest})")
     except AuditorError as exc:
         _fail(str(exc))
     s = report.summary
     typer.echo(f"Result: {s['by_status']}")
+    if s["suppressed_failures"]:
+        typer.echo(f"{s['suppressed_failures']} failing finding(s) are suppressed (still shown).")
     if s["controls_with_unknown_results"]:
         typer.secho(
             "Some results are unknown (ERROR/NOT_ASSESSED): "
@@ -273,7 +298,8 @@ def audit_run(
             fg=typer.colors.YELLOW,
         )
     if fail_on and any(
-        f.status is Status.FAIL and f.severity.rank >= fail_on.rank for f in report.findings
+        f.status is Status.FAIL and f.suppression is None and f.severity.rank >= fail_on.rank
+        for f in report.findings
     ):
         raise typer.Exit(EXIT_FINDINGS)
     if strict and s["controls_with_unknown_results"]:
@@ -342,25 +368,74 @@ def findings_filter(
 @report_app.command("export")
 def report_export(
     report_path: Path,
-    fmt: Annotated[str, typer.Option("--format", help="json, csv or html.")],
+    fmt: Annotated[str, typer.Option("--format", help="json, csv, html or sarif.")],
     output: Annotated[Path, typer.Option(help="Destination file.")],
     redact: Annotated[bool, typer.Option(help="Apply account/key/IP redaction.")] = False,
     ip_addresses: Annotated[bool, typer.Option(help="Also mask IPv4 addresses.")] = False,
     force: Annotated[bool, typer.Option()] = False,
 ) -> None:
     """Convert a saved JSON report to another format, optionally redacted."""
-    from .config import RedactionSettings
-
-    renderers = {"json": to_json, "csv": to_csv, "html": to_html}
-    if fmt not in renderers:
-        _fail("--format must be json, csv or html")
+    if fmt not in RENDERERS:
+        _fail(f"--format must be one of: {', '.join(RENDERERS)}")
     try:
         rep = load_report(report_path)
         redactor = Redactor(RedactionSettings(enabled=redact, ip_addresses=ip_addresses))
-        write_report_file(output, renderers[fmt](rep, redactor), overwrite=force)
+        write_report_file(output, RENDERERS[fmt](rep, redactor), overwrite=force)
     except AuditorError as exc:
         _fail(str(exc))
     typer.echo(f"wrote {output}")
+
+
+@report_app.command("verify")
+def report_verify(manifest: Path) -> None:
+    """Check report files against their SHA-256 manifest (tamper evidence, not a signature)."""
+    try:
+        results = verify_manifest(manifest)
+    except AuditorError as exc:
+        _fail(str(exc))
+    for name, state in results:
+        typer.echo(f"{state:9} {name}")
+    if any(state != "OK" for _n, state in results):
+        raise typer.Exit(EXIT_FINDINGS)
+
+
+@report_app.command("diff")
+def report_diff(
+    old_report: Path,
+    new_report: Path,
+    fmt: Annotated[str, typer.Option("--format", help="table or json.")] = "table",
+    fail_on_regression: Annotated[
+        bool, typer.Option(help="Exit 1 if any control newly fails.")
+    ] = False,
+) -> None:
+    """Show what changed between two saved JSON reports (matched by finding_id)."""
+    try:
+        result = diff_reports(load_report(old_report), load_report(new_report))
+    except AuditorError as exc:
+        _fail(str(exc))
+    if fmt == "json":
+        typer.echo(json.dumps(result, indent=2))
+    elif fmt == "table":
+        for note in result["notes"]:
+            typer.secho(f"note: {note}", fg=typer.colors.YELLOW, err=True)
+        labels = {
+            "regressions": "NEW FAILURES",
+            "resolved": "RESOLVED",
+            "became_unknown": "BECAME UNKNOWN (not an improvement)",
+            "not_reported": "NO LONGER REPORTED (cannot confirm resolved)",
+        }
+        for key, label in labels.items():
+            typer.echo(f"{label}: {result['counts'][key]}")
+            for item in result[key]:
+                typer.echo(
+                    f"  {item['control_id']:8} {item['severity']:8} {item['region']:12} "
+                    f"{item['resource_id']}"
+                )
+        typer.echo(f"unchanged: {result['counts']['unchanged']}")
+    else:
+        _fail("--format must be 'table' or 'json'")
+    if fail_on_regression and result["counts"]["regressions"]:
+        raise typer.Exit(EXIT_FINDINGS)
 
 
 # ---------------------------------------------------------------- policy / org

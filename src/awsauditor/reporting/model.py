@@ -45,7 +45,8 @@ class Report(BaseModel):
 
 def summarize(findings: list[Finding]) -> dict[str, Any]:
     by_status = Counter(f.status.value for f in findings)
-    fail_by_sev = Counter(f.severity.value for f in findings if f.status is Status.FAIL)
+    active = [f for f in findings if f.status is Status.FAIL and f.suppression is None]
+    fail_by_sev = Counter(f.severity.value for f in active)
     incomplete: dict[str, int] = {}
     for f in findings:
         if f.status in (Status.ERROR, Status.NOT_ASSESSED):
@@ -54,6 +55,8 @@ def summarize(findings: list[Finding]) -> dict[str, Any]:
         "total_findings": len(findings),
         "by_status": {s.value: by_status.get(s.value, 0) for s in Status},
         "failed_by_severity": {s.value: fail_by_sev.get(s.value, 0) for s in Severity},
+        "active_failures": len(active),
+        "suppressed_failures": by_status.get(Status.FAIL.value, 0) - len(active),
         "controls_with_unknown_results": dict(sorted(incomplete.items())),
     }
 

@@ -49,7 +49,7 @@ jobs:
           uv venv "$RUNNER_TEMP/smoke"
           uv pip install --python "$RUNNER_TEMP/smoke/bin/python" "$RUNNER_TEMP"/dist/*.whl
           cd "$RUNNER_TEMP"
-          smoke/bin/awsauditor controls list | grep -q "(38 controls)"
+          smoke/bin/awsauditor controls list | grep -q "(41 controls)"
           smoke/bin/awsauditor policy generate --audit-profile full > /dev/null
       - name: Dependency audit (pip-audit)
         run: |

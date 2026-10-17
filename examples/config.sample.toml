@@ -37,3 +37,15 @@ formats = ["json", "html"]
 [profiles.identity-and-logging]
 services = ["iam", "cloudtrail", "guardduty", "config"]
 min_severity = "medium"
+
+# Suppressions accept a FAIL explicitly and visibly. The finding stays FAIL in every report; it
+# only stops counting toward --fail-on. An expiry is mandatory; expired and stale entries are
+# warned about. Uncomment and edit:
+#
+# [[suppressions]]
+# control_id = "NET-004"
+# resource = "sg-0abc*"            # fnmatch pattern against the resource id
+# region = "*"                     # fnmatch pattern against the region
+# reason = "Egress is restricted by the central network firewall"
+# owner = "secops@example.com"
+# expires = 2027-03-31
