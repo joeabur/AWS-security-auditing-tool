@@ -6,7 +6,10 @@ from botocore.exceptions import (
     BotoCoreError,
     ClientError,
     ConnectTimeoutError,
+    CredentialRetrievalError,
     EndpointConnectionError,
+    NoCredentialsError,
+    PartialCredentialsError,
     ReadTimeoutError,
 )
 
@@ -56,6 +59,7 @@ THROTTLE_CODES = frozenset(
         "ProvisionedThroughputExceededException",
     }
 )
+EXPIRED_CODES = frozenset({"ExpiredToken", "ExpiredTokenException", "RequestExpired"})
 # Region not enabled / service not offered / endpoint unreachable: the control could not be
 # evaluated there, but that is not a permissions or code problem.
 UNSUPPORTED_CODES = frozenset(
@@ -86,6 +90,13 @@ def classify_exception(exc: BaseException) -> tuple[Status, str, str]:
                 "Grant the missing read-only permission (see policies/) and re-run; "
                 "the control result is unknown.",
             )
+        if code in EXPIRED_CODES:
+            return (
+                Status.ERROR,
+                f"AWS credentials expired while calling {op}.",
+                "Re-authenticate (assumed-role sessions last at most role_duration_seconds) "
+                "and re-run; the control result is unknown.",
+            )
         if code in THROTTLE_CODES:
             return (
                 Status.ERROR,
@@ -111,6 +122,12 @@ def classify_exception(exc: BaseException) -> tuple[Status, str, str]:
         )
     if isinstance(exc, ConnectTimeoutError | ReadTimeoutError):
         return Status.ERROR, "Timed out calling AWS.", "The control result is unknown."
+    if isinstance(exc, NoCredentialsError | PartialCredentialsError | CredentialRetrievalError):
+        return (
+            Status.ERROR,
+            "AWS credentials are missing or unusable.",
+            "Check the credential chain (SSO login, profile, role); the control result is unknown.",
+        )
     if isinstance(exc, ReadOnlyViolation):
         return Status.ERROR, str(exc), "Internal read-only guard rejected the call."
     if isinstance(exc, ParseError | KeyError | TypeError | ValueError | AttributeError):

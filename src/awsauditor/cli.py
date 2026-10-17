@@ -280,9 +280,13 @@ def audit_run(
         raise typer.Exit(EXIT_INCOMPLETE)
 
 
+def _interactive() -> bool:
+    return sys.stdin.isatty()
+
+
 def _confirm(resolved: str, supplied: str | None) -> None:
     if supplied is None:
-        if not sys.stdin.isatty():
+        if not _interactive():
             raise AccountMismatch(
                 "non-interactive run: pass --confirm-account with the account ID shown above"
             )

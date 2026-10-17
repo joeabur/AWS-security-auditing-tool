@@ -19,24 +19,36 @@ GLOBAL_REGION = "global"
 
 
 class SharedCache:
-    """Thread-safe memoization, including of failures (so denied calls are made once)."""
+    """Thread-safe memoization, including of failures (so denied calls are made once).
+
+    Each key has its own lock so a slow computation (for example the IAM credential report)
+    never blocks unrelated cache users.
+    """
 
     def __init__(self) -> None:
-        self._lock = threading.RLock()
+        self._guard = threading.Lock()
+        self._locks: dict[str, threading.RLock] = {}
         self._values: dict[str, Any] = {}
         self._errors: dict[str, Exception] = {}
 
     def get_or_compute(self, key: str, fn: Callable[[], Any]) -> Any:
-        with self._lock:
-            if key in self._errors:
-                raise self._errors[key]
-            if key not in self._values:
-                try:
-                    self._values[key] = fn()
-                except Exception as exc:
+        with self._guard:
+            lock = self._locks.setdefault(key, threading.RLock())
+        with lock:
+            with self._guard:
+                if key in self._errors:
+                    raise self._errors[key]
+                if key in self._values:
+                    return self._values[key]
+            try:
+                value = fn()
+            except Exception as exc:
+                with self._guard:
                     self._errors[key] = exc
-                    raise
-            return self._values[key]
+                raise
+            with self._guard:
+                self._values[key] = value
+            return value
 
 
 @dataclass

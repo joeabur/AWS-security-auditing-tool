@@ -34,7 +34,8 @@ def fixture_json(name: str) -> Any:
 class FaultFactory(ClientFactory):
     """Factory whose clients can answer every call with an injected AWS error or payload."""
 
-    fault: dict[str, Any] | None = None
+    fault: dict[str, Any] | None = None  # applies to every operation
+    op_faults: dict[str, dict[str, Any]] = {}  # noqa: RUF012 - reassigned per test via attribute
 
     def client(self, service: str, region: str | None = None) -> Any:
         key = (service, region)
@@ -50,11 +51,12 @@ class FaultFactory(ClientFactory):
     def _no_network(model: Any, **_kwargs: Any) -> None:
         raise AssertionError(f"unstubbed AWS call: {model.service_model.service_name}.{model.name}")
 
-    def _inject(self, **_kwargs: Any) -> Any:
-        if self.fault is None:
+    def _inject(self, model: Any, **_kwargs: Any) -> Any:
+        fault = self.op_faults.get(model.name) or self.fault
+        if fault is None:
             return None
-        status = int(self.fault.get("status", 400))
-        return SimpleNamespace(status_code=status), self.fault["parsed"]
+        status = int(fault.get("status", 400))
+        return SimpleNamespace(status_code=status), fault["parsed"]
 
 
 def error_payload(code: str, status: int = 400) -> dict[str, Any]:
