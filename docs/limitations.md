@@ -37,7 +37,7 @@
 
 - Read-only calls are subject to account API rate limits; large accounts (thousands of security
   groups/buckets) can take minutes and retry under throttling.
-- Reports are point-in-time and unsigned.
+- Reports are point-in-time. Signing is optional (Ed25519); `signed_at` is self-asserted, with no trusted timestamp, and key distribution is out of band (see `signing.md`).
 - `AccountMFAEnabled`, credential report and similar data can lag changes by minutes to hours.
 - Windows is untested.
 
@@ -51,4 +51,4 @@
 5. RDS clusters and snapshots; EBS snapshot encryption; Lambda/ECR/EKS public exposure.
 6. Multi-account runner using Organizations discovery plus per-account role assumption.
 7. OCSF output. (SARIF shipped.) (Diff mode using the stable `finding_id` shipped: `report diff`.)
-8. Cryptographically signed reports (a SHA-256 manifest exists today; it detects accidental or naive tampering only, not a determined attacker who can rewrite both files) and optional encrypted-at-rest output.
+8. Optional encrypted-at-rest report output; trusted timestamping and HSM/KMS-backed signing. (Ed25519 signing shipped.)
