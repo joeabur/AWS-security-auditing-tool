@@ -27,6 +27,7 @@
 | T7 | Over-privileged auditor | Least-privilege policy generated from the catalog and tested for equality with the APIs actually called; administrator access never required | `Resource: "*"` is inherent to these APIs |
 | T8 | Throttling or cost impact on production | Adaptive retries, worker limit (default 4), read-only list/describe calls only | Large accounts take longer; no cost is incurred by the APIs used |
 | T9 | Supply-chain compromise | Lockfile (`uv.lock`), `pip-audit` and secret scanning in CI, GitHub Actions pinned to commit SHAs, `permissions: contents: read` | Transitive dependencies are trusted after audit |
+| T11 | Report tampering after generation | SHA-256 manifest plus optional Ed25519 signature over the manifest; verification with a public key requires a valid signature (stripping fails); private key never accepted via args/config, mode-0600 enforced | Self-asserted timestamp; trust in the distributed public key; a compromised signing key |
 | T10 | Stale evidence | Every finding has `observed_at`; reports are point-in-time | Configuration may change right after the audit |
 
 ## Out of scope

@@ -1,6 +1,10 @@
 # Changelog
 
-## 2026.10.1 (catalog) / unreleased
+## Unreleased
+
+- **Ed25519 report signing**: `keys generate`, `audit run --sign`, `report sign`, `report verify --public-key` (supplying a key makes a missing/invalid signature a failure). New dependency: `cryptography`. See `docs/signing.md`.
+
+## 2026.10.1 (catalog)
 
 - New controls: **LOG-013** (all management events recorded), **IAM-010** (AdministratorAccess attached to users/groups), **STO-007** (S3 bucket ACL grants to AllUsers/AuthenticatedUsers).
 - LOG-005 now evaluates bucket ACLs, so it no longer ends in `NOT_ASSESSED` when Block Public Access is incomplete.

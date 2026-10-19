@@ -9,6 +9,7 @@ dependencies = [
     "boto3>=1.43,<1.44",
     "pydantic>=2.14,<3",
     "typer>=0.27,<0.28",
+    "cryptography>=45,<51",
 ]
 
 [project.scripts]

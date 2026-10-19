@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import Annotated, NamedTuple, NoReturn
 
 import typer
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from . import __version__
 from .catalog import load_catalog, select_controls
 from .config import REPORT_FORMATS, AuditConfig, RedactionSettings, load_config
 from .errors import AccountMismatch, AuditorError, ConfigError
-from .models import Control, Severity, Status
+from .models import Control, Severity, Status, utcnow
 from .organizations import list_accounts
 from .policy import build_policy
 from .redaction import Redactor
@@ -32,6 +33,17 @@ from .reporting import (
 )
 from .runner import run_audit
 from .session import ClientFactory, Identity, build_session, resolve_identity
+from .signing import (
+    KEY_ENV,
+    PASSPHRASE_ENV,
+    SignatureError,
+    generate_keypair,
+    load_private_key,
+    load_public_key,
+    public_key_id,
+    sign_manifest,
+    verify_signature,
+)
 from .suppressions import apply_suppressions
 
 app = typer.Typer(help="Read-only AWS security auditing tool.", no_args_is_help=True)
@@ -42,11 +54,13 @@ findings_app = typer.Typer(help="Query saved reports.", no_args_is_help=True)
 report_app = typer.Typer(help="Export saved reports.", no_args_is_help=True)
 policy_app = typer.Typer(help="Least-privilege IAM policy.", no_args_is_help=True)
 org_app = typer.Typer(help="Optional AWS Organizations discovery.", no_args_is_help=True)
+keys_app = typer.Typer(help="Report-signing keys.", no_args_is_help=True)
 for name, sub in [
     ("controls", controls_app),
     ("config", config_app),
     ("audit", audit_app),
     ("findings", findings_app),
+    ("keys", keys_app),
     ("report", report_app),
     ("policy", policy_app),
     ("org", org_app),
@@ -88,6 +102,15 @@ def make_factory(
         connect_timeout=config.aws.connect_timeout,
         read_timeout=config.aws.read_timeout,
     )
+
+
+def _load_signing_key(path: Path | None) -> Ed25519PrivateKey:
+    """Key path from --signing-key or the environment; passphrase only from the environment."""
+    chosen = path or (Path(os.environ[KEY_ENV]) if os.environ.get(KEY_ENV) else None)
+    if chosen is None:
+        raise AuditorError(f"no signing key: pass --signing-key PATH or set {KEY_ENV}")
+    passphrase = os.environ.get(PASSPHRASE_ENV)
+    return load_private_key(chosen, passphrase.encode() if passphrase else None)
 
 
 def _selected(config: AuditConfig, audit_profile: str | None) -> tuple[str, list[Control]]:
@@ -234,6 +257,11 @@ def audit_run(
     workers: Annotated[
         int | None, typer.Option(min=1, max=16, help="Parallel API workers (default: config).")
     ] = None,
+    sign: Annotated[bool, typer.Option(help="Sign the report manifest (Ed25519).")] = False,
+    signing_key: Annotated[
+        Path | None,
+        typer.Option(help=f"Ed25519 private key PEM (default: ${KEY_ENV}); mode 0600 required."),
+    ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ) -> None:
     """Run an audit after explicit account confirmation."""
@@ -244,6 +272,7 @@ def audit_run(
             cfg.redaction.enabled = redact
         if workers is not None:
             cfg.audit.workers = workers
+        signer = _load_signing_key(signing_key) if sign else None  # fail before any AWS call
         name, controls, factory, identity, home, plan = _prepare(
             cfg, aws_profile, role_arn, regions, audit_profile
         )
@@ -283,8 +312,14 @@ def audit_run(
             write_report_file(path, written[path.name], overwrite=force)
             typer.echo(f"wrote {path}")
         manifest = out / f"audit-{stamp}.sha256"
-        write_report_file(manifest, build_manifest(written), overwrite=force)
+        manifest_text = build_manifest(written)
+        write_report_file(manifest, manifest_text, overwrite=force)
         typer.echo(f"wrote {manifest} (verify with: awsauditor report verify {manifest})")
+        if signer is not None:
+            sig = manifest.with_suffix(".sig.json")
+            envelope = sign_manifest(manifest_text.encode("utf-8"), signer, result.finished_at)
+            write_report_file(sig, envelope, overwrite=force)
+            typer.echo(f"wrote {sig} (key id {public_key_id(signer.public_key())[:16]}...)")
     except AuditorError as exc:
         _fail(str(exc))
     s = report.summary
@@ -387,16 +422,95 @@ def report_export(
 
 
 @report_app.command("verify")
-def report_verify(manifest: Path) -> None:
-    """Check report files against their SHA-256 manifest (tamper evidence, not a signature)."""
+def report_verify(
+    manifest: Path,
+    public_key: Annotated[
+        Path | None,
+        typer.Option(help="Ed25519 public key PEM. If given, a valid signature is REQUIRED."),
+    ] = None,
+) -> None:
+    """Check report files against their SHA-256 manifest and, with --public-key, its signature.
+
+    Without --public-key only the file hashes are checked (tamper evidence). Supplying the key
+    makes a missing or invalid signature a failure, so stripping the signature cannot pass.
+    """
+    sig_path = manifest.with_suffix(".sig.json")
+    failed = False
     try:
         results = verify_manifest(manifest)
+        pub = load_public_key(public_key) if public_key else None
     except AuditorError as exc:
         _fail(str(exc))
     for name, state in results:
         typer.echo(f"{state:9} {name}")
-    if any(state != "OK" for _n, state in results):
+        failed |= state != "OK"
+    if pub is not None:
+        if not sig_path.is_file():
+            typer.secho(f"SIGNATURE MISSING ({sig_path.name} not found)", fg=typer.colors.RED)
+            failed = True
+        else:
+            try:
+                env = verify_signature(manifest.read_bytes(), sig_path.read_text("utf-8"), pub)
+                typer.echo(f"SIGNATURE VALID (key {env.key_id[:16]}..., signed_at {env.signed_at})")
+            except (SignatureError, OSError) as exc:
+                typer.secho(f"SIGNATURE INVALID: {exc}", fg=typer.colors.RED)
+                failed = True
+    elif sig_path.is_file():
+        typer.secho(
+            "note: a signature file exists but was not checked; pass --public-key to verify it",
+            fg=typer.colors.YELLOW,
+        )
+    if failed:
         raise typer.Exit(EXIT_FINDINGS)
+
+
+@report_app.command("sign")
+def report_sign(
+    manifest: Path,
+    signing_key: Annotated[
+        Path | None, typer.Option(help=f"Private key PEM (default: ${KEY_ENV}).")
+    ] = None,
+    force: Annotated[bool, typer.Option()] = False,
+) -> None:
+    """Sign an existing report manifest (after verifying its file hashes)."""
+    try:
+        if any(state != "OK" for _n, state in verify_manifest(manifest)):
+            raise AuditorError("refusing to sign: manifest does not match the report files")
+        key = _load_signing_key(signing_key)
+        sig = manifest.with_suffix(".sig.json")
+        envelope = sign_manifest(manifest.read_bytes(), key, utcnow())
+        write_report_file(sig, envelope, overwrite=force)
+    except AuditorError as exc:
+        _fail(str(exc))
+    typer.echo(f"wrote {sig} (key id {public_key_id(key.public_key())})")
+
+
+@keys_app.command("generate")
+def keys_generate(
+    private_key: Annotated[Path, typer.Option(help="Where to write the private key (0600).")],
+    public_key: Annotated[Path, typer.Option(help="Where to write the public key.")],
+    force: Annotated[bool, typer.Option()] = False,
+) -> None:
+    """Generate an Ed25519 signing key pair. Set the passphrase via the environment."""
+    passphrase = os.environ.get(PASSPHRASE_ENV)
+    try:
+        private_pem, public_pem = generate_keypair(passphrase.encode() if passphrase else None)
+        write_report_file(private_key, private_pem.decode("ascii"), overwrite=force)
+        write_report_file(public_key, public_pem.decode("ascii"), overwrite=force)
+        os.chmod(public_key, 0o644)
+        key_id = public_key_id(load_public_key(public_key))
+    except AuditorError as exc:
+        _fail(str(exc))
+    typer.echo(f"private key: {private_key} (keep secret, back it up offline)")
+    typer.echo(f"public key:  {public_key} (distribute to verifiers out of band)")
+    typer.echo(f"key id (SHA-256 fingerprint): {key_id}")
+    if not passphrase:
+        typer.secho(
+            f"warning: private key is NOT encrypted; set {PASSPHRASE_ENV} before "
+            "generating to encrypt it",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
 
 
 @report_app.command("diff")

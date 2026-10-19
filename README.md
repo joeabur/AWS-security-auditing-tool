@@ -58,7 +58,7 @@ non-interactive runs (CI) must pass it. A mismatch aborts before any audit API c
 | `findings filter report.json --status FAIL,ERROR --min-severity high --control IAM-003 --region us-east-1` | Query a saved report |
 | `report diff old.json new.json [--fail-on-regression]` | New failures, resolved findings and results that became unknown between two runs |
 | `report export report.json --format html|sarif|csv --output out [--redact --ip-addresses]` | Convert/redact a saved report |
-| `report verify audit-….sha256` | Check report files against their SHA-256 manifest (tamper evidence) |
+| `keys generate` / `report sign` / `report verify [--public-key K]` | Ed25519 signing and verification of report manifests |
 | `policy generate --audit-profile baseline` | Print the least-privilege IAM policy for a profile |
 | `org list-accounts` | Optional: list Organization accounts (separate permissions) |
 
@@ -75,8 +75,11 @@ Exit codes: `0` ok · `1` a FAIL at/above `--fail-on` · `2` usage/config/auth e
 - **SARIF 2.1.0** (`--formats sarif`) carries `FAIL` findings and unknown results (`kind: review`)
   with logical (resource) locations and stable fingerprints for security tooling.
 - **Manifest:** every `audit run` writes `audit-<stamp>.sha256`; `awsauditor report verify` checks it.
-  This detects accidental or naive tampering, not an attacker who can rewrite both files (signing is
-  on the roadmap).
+  Alone this detects accidental or naive tampering, not an attacker who can rewrite both files.
+- **Signing (Ed25519):** `awsauditor keys generate`, then `audit run --sign` (or `report sign`) and
+  `report verify --public-key key.pub`. A valid signature proves the files are exactly what the key
+  holder signed; stripping the signature fails verification. See [docs/signing.md](docs/signing.md)
+  for what it does and does not prove.
 - **Diffing:** `awsauditor report diff old.json new.json --fail-on-regression` for CI gates.
 
 ### Configuration
@@ -146,7 +149,7 @@ permissions. The first CI run on `main` passed on all three Python versions.
 
 [Architecture](docs/architecture.md) · [Threat model](docs/threat-model.md) ·
 [Control mappings](docs/control-mappings.md) · [IAM permissions](docs/iam-permissions.md) ·
-[Integration testing](docs/integration-testing.md) · [Limitations & roadmap](docs/limitations.md) ·
+[Report signing](docs/signing.md) · [Integration testing](docs/integration-testing.md) · [Limitations & roadmap](docs/limitations.md) ·
 [Implementation plan](docs/implementation-plan.md) · [Contributing](CONTRIBUTING.md) ·
 [Security policy](SECURITY.md)
 

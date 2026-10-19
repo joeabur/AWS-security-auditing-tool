@@ -9,7 +9,7 @@ personal open-source project without an SLA.
 
 In scope: anything that could let the tool modify AWS resources, leak credentials or sensitive
 report data, bypass the account-confirmation step, report PASS where the evidence is unknown,
-or allow injection via report output (HTML/CSV).
+or allow injection via report output (HTML/CSV), or forge/bypass report signature verification.
 
 ## Security properties this project aims to maintain
 
@@ -19,6 +19,7 @@ or allow injection via report output (HTML/CSV).
   boto3 chain, SSO or role assumption.
 - Errors are never treated as passing.
 - Reports are written `0600`; redaction is available for account IDs, access key IDs and IPs.
+- Reports can be Ed25519-signed (`docs/signing.md`); signing keys are never accepted on the command line or in config files.
 
 ## Handling audit reports
 
